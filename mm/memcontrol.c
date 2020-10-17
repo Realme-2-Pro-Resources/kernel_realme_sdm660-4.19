@@ -79,6 +79,9 @@ EXPORT_SYMBOL(memory_cgrp_subsys);
 
 struct mem_cgroup *root_mem_cgroup __read_mostly;
 
+/* Active memory cgroup to use from an interrupt context */
+DEFINE_PER_CPU(struct mem_cgroup *, int_active_memcg);
+
 #define MEM_CGROUP_RECLAIM_RETRIES	5
 
 /* Socket memory accounting disabled? */
@@ -882,20 +885,35 @@ struct mem_cgroup *get_mem_cgroup_from_page(struct page *page)
 }
 EXPORT_SYMBOL(get_mem_cgroup_from_page);
 
+static __always_inline struct mem_cgroup *active_memcg(void)
+{
+	if (in_interrupt())
+		return this_cpu_read(int_active_memcg);
+	else
+		return current->active_memcg;
+}
+
+static __always_inline struct mem_cgroup *get_active_memcg(void)
+{
+	struct mem_cgroup *memcg;
+
+	rcu_read_lock();
+	memcg = active_memcg();
+	if (memcg && !css_tryget_online(&memcg->css))
+		memcg = root_mem_cgroup;
+	rcu_read_unlock();
+
+	return memcg;
+}
+
 /**
- * If current->active_memcg is non-NULL, do not fallback to current->mm->memcg.
+ * If active memcg is set, do not fallback to current->mm->memcg.
  */
 static __always_inline struct mem_cgroup *get_mem_cgroup_from_current(void)
 {
-	if (unlikely(current->active_memcg)) {
-		struct mem_cgroup *memcg = root_mem_cgroup;
+	if (unlikely(active_memcg()))
+		return get_active_memcg();
 
-		rcu_read_lock();
-		if (css_tryget_online(&current->active_memcg->css))
-			memcg = current->active_memcg;
-		rcu_read_unlock();
-		return memcg;
-	}
 	return get_mem_cgroup_from_mm(current->mm);
 }
 
@@ -2572,8 +2590,8 @@ struct kmem_cache *memcg_kmem_get_cache(struct kmem_cache *cachep)
 
 	rcu_read_lock();
 
-	if (unlikely(current->active_memcg))
-		memcg = current->active_memcg;
+	if (unlikely(active_memcg()))
+		memcg = active_memcg();
 	else
 		memcg = mem_cgroup_from_task(current);
 
