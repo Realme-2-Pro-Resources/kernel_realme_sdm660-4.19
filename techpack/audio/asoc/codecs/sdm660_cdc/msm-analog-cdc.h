@@ -214,6 +214,12 @@ struct sdm660_cdc_priv {
 		[ANLG_CDC_CHILD_DEVICES_MAX];
 	int child_count;
 	struct regmap *regmap;
+	#ifdef VENDOR_EDIT
+	/*Jianfeng.Qiu@PSW.MM.AudioDriver.Codec, 2017/05/12,
+	 *Add for set mode for pm660l_bob regulator.
+	 */
+	unsigned int bob_mode;
+	#endif /* VENDOR_EDIT */
 };
 
 struct sdm660_cdc_pdata {

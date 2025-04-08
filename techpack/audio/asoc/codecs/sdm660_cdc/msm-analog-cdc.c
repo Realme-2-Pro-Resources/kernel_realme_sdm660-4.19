@@ -1976,8 +1976,102 @@ static const char * const cf_text[] = {
 	"MIN_3DB_4Hz", "MIN_3DB_75Hz", "MIN_3DB_150Hz"
 };
 
+#ifdef VENDOR_EDIT
+/*Jianfeng.Qiu@PSW.MM.AudioDriver.Codec, 2017/05/12,
+ *Add for set mode for pm660l_bob regulator.
+ */
+static char const *pm660l_bob_ctrl_text[] = {
+	"MODE_NORMAL", "MODE_FAST", "MODE_IDLE", "MODE_STANDBY"
+};
+static const struct soc_enum pm660l_bob_ctl_enum[] = {
+	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(pm660l_bob_ctrl_text), pm660l_bob_ctrl_text),
+};
+
+extern int pm660l_bob_regulator_set_mode(unsigned int mode);
+
+static int regulator_mode_switch_get(struct snd_kcontrol *kcontrol,
+            struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
+	struct sdm660_cdc_priv *sdm660_cdc = snd_soc_codec_get_drvdata(codec);
+
+	if (!sdm660_cdc) {
+		pr_warn("%s: No sdm660_cdc\n", __func__);
+		return 0;
+	}
+
+	if (sdm660_cdc->bob_mode == REGULATOR_MODE_NORMAL) {
+		ucontrol->value.integer.value[0] = 0;
+	} else if (sdm660_cdc->bob_mode == REGULATOR_MODE_FAST) {
+		ucontrol->value.integer.value[0] = 1;
+	} else if (sdm660_cdc->bob_mode == REGULATOR_MODE_IDLE) {
+		ucontrol->value.integer.value[0] = 2;
+	} else if (sdm660_cdc->bob_mode == REGULATOR_MODE_STANDBY) {
+		ucontrol->value.integer.value[0] = 3;
+	} else  {
+		pr_err("%s: ERROR: Default bob_mode = 0x%x\n",
+			__func__, sdm660_cdc->bob_mode);
+	}
+
+	pr_info("%s: bob_mode = 0x%x\n", __func__, sdm660_cdc->bob_mode);
+	return 0;
+}
+
+static int regulator_mode_switch_set(struct snd_kcontrol *kcontrol,
+            struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
+	struct sdm660_cdc_priv *sdm660_cdc = snd_soc_codec_get_drvdata(codec);
+
+	pr_info("%s: ucontrol->value.integer.value[0] = %ld\n",
+		__func__, ucontrol->value.integer.value[0]);
+
+	if (!sdm660_cdc) {
+		pr_warn("%s: No sdm660_cdc\n", __func__);
+		return 0;
+	}
+
+	switch (ucontrol->value.integer.value[0]) {
+	case 0:
+		sdm660_cdc->bob_mode = REGULATOR_MODE_NORMAL;
+		break;
+	case 1:
+		sdm660_cdc->bob_mode = REGULATOR_MODE_FAST;
+		break;
+	case 2:
+		sdm660_cdc->bob_mode = REGULATOR_MODE_IDLE;
+		break;
+	case 3:
+		sdm660_cdc->bob_mode = REGULATOR_MODE_STANDBY;
+		break;
+	default:
+		sdm660_cdc->bob_mode = REGULATOR_MODE_NORMAL;
+		break;
+	}
+
+	pr_info("%s: set bob_mode = 0x%x\n", __func__, sdm660_cdc->bob_mode);
+	pm660l_bob_regulator_set_mode(sdm660_cdc->bob_mode);
+
+	return 0;
+}
+#endif /* VENDOR_EDIT */
 
 static const struct snd_kcontrol_new msm_anlg_cdc_snd_controls[] = {
+	#ifdef VENDOR_EDIT
+	/*Zhaoan.Xu@PSW.MM.AudioDriver.FTM, 2016/08/24,
+	 *Add for AT command to enable micbias.
+	 */
+	SOC_ENUM_EXT("Enable Micbias", msm_anlg_cdc_micbias_ctl_enum[0],
+		micbias_get, micbias_put),
+	#endif /* VENDOR_EDIT */
+
+	#ifdef VENDOR_EDIT
+	/*Jianfeng.Qiu@PSW.MM.AudioDriver.Codec, 2017/05/12,
+	 *Add for set mode for pm660l_bob regulator.
+	 */
+	SOC_ENUM_EXT("Regulator Mode Switch", pm660l_bob_ctl_enum[0],
+		regulator_mode_switch_get, regulator_mode_switch_set),
+	#endif /* VENDOR_EDIT */
 
 	SOC_ENUM_EXT("RX HPH Mode", msm_anlg_cdc_hph_mode_ctl_enum[0],
 		msm_anlg_cdc_hph_mode_get, msm_anlg_cdc_hph_mode_set),
@@ -4235,6 +4329,12 @@ static int msm_anlg_cdc_soc_probe(struct snd_soc_component *component)
 	sdm660_cdc->boost_option = BOOST_SWITCH;
 	sdm660_cdc->hph_mode = NORMAL_MODE;
 
+	#ifdef VENDOR_EDIT
+	/*Jianfeng.Qiu@PSW.MM.AudioDriver.Codec, 2017/05/12,
+	 *Add for set mode for pm660l_bob regulator.
+	 */
+	sdm660_cdc->bob_mode = REGULATOR_MODE_NORMAL;
+	#endif /* VENDOR_EDIT */
 	msm_anlg_cdc_dt_parse_boost_info(component);
 	msm_anlg_cdc_set_boost_v(component);
 
@@ -4683,6 +4783,10 @@ static int msm_anlg_cdc_probe(struct platform_device *pdev)
 				     GFP_KERNEL);
 	if (sdm660_cdc == NULL) {
 		ret = -ENOMEM;
+		#ifdef VENDOR_EDIT
+		/* Jianfeng.Qiu@PSW.MM.AudioDriver.Machine,2017/09/21, Add for log*/
+		pr_err("%s: *** -ENOMEM\n", __func__);
+		#endif /* VENDOR_EDIT */
 		goto rtn;
 	}
 
