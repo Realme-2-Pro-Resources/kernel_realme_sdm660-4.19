@@ -1490,8 +1490,9 @@ static int msm_snd_card_late_probe(struct snd_soc_card *card)
  */
 static int ak4376_audrx_init(struct snd_soc_pcm_runtime *rtd)
 {
-	struct snd_soc_codec *codec = rtd->codec;
-	struct snd_soc_dapm_context *dapm = snd_soc_codec_get_dapm(codec);//&codec->dapm;
+	struct snd_soc_component *component = rtd->codec_dai->component;
+	struct snd_soc_dapm_context *dapm =
+			snd_soc_component_get_dapm(component);
 	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
 
 	pr_err("%s(),dev_name%s\n", __func__, dev_name(cpu_dai->dev));
@@ -2688,7 +2689,7 @@ static struct snd_soc_dai_link ak43xx_be_dai_links[] = {
 		.init = ak4376_audrx_init,
 		.no_pcm = 1,
 		.dpcm_playback = 1,
-		.be_id = MSM_BACKEND_DAI_PRI_MI2S_RX,
+		.id = MSM_BACKEND_DAI_PRI_MI2S_RX,
 		.be_hw_params_fixup = msm_common_be_hw_params_fixup,
 		.ops = &msm_mi2s_be_ops,
 		.ignore_suspend = 1,
@@ -2709,7 +2710,7 @@ static struct snd_soc_dai_link tfa98xx_be_dai_links[] = {
 		.codec_dai_name = "tfa98xx-aif-6-36",
 		.no_pcm = 1,
 		.dpcm_playback = 1,
-		.be_id = MSM_BACKEND_DAI_SECONDARY_MI2S_RX,
+		.id = MSM_BACKEND_DAI_SECONDARY_MI2S_RX,
 		.be_hw_params_fixup = msm_common_be_hw_params_fixup,
 		.ops = &msm_mi2s_be_ops,
 		.ignore_suspend = 1,
@@ -3219,7 +3220,7 @@ static struct snd_soc_card *msm_int_populate_sndcard_dailinks(
 			pr_info("%s: custom headphone product %s\n", __func__, product_name);
 			for (i = 0; i < ARRAY_SIZE(msm_mi2s_be_dai_links); i++) {
 				temp_link = &msm_mi2s_be_dai_links[i];
-				if (temp_link->be_id == MSM_BACKEND_DAI_PRI_MI2S_RX) {
+				if (temp_link->id == MSM_BACKEND_DAI_PRI_MI2S_RX) {
 					if (!strcmp(product_name, "akm")) {
 						memcpy(temp_link, &ak43xx_be_dai_links[0],
 							sizeof(ak43xx_be_dai_links[0]));
@@ -3234,7 +3235,7 @@ static struct snd_soc_card *msm_int_populate_sndcard_dailinks(
 			pr_info("%s: custom speaker product %s\n", __func__, product_name);
 			for (i = 0; i < ARRAY_SIZE(msm_mi2s_be_dai_links); i++) {
 				temp_link = &msm_mi2s_be_dai_links[i];
-				if (temp_link->be_id == MSM_BACKEND_DAI_SECONDARY_MI2S_RX) {
+				if (temp_link->id == MSM_BACKEND_DAI_SECONDARY_MI2S_RX) {
 					if (!strcmp(product_name, "nxp")) {
 						memcpy(temp_link, &tfa98xx_be_dai_links[0],
 							sizeof(tfa98xx_be_dai_links[0]));

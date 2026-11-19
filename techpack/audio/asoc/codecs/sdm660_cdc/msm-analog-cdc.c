@@ -1992,8 +1992,10 @@ extern int pm660l_bob_regulator_set_mode(unsigned int mode);
 static int regulator_mode_switch_get(struct snd_kcontrol *kcontrol,
             struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
-	struct sdm660_cdc_priv *sdm660_cdc = snd_soc_codec_get_drvdata(codec);
+	struct snd_soc_component *component =
+			snd_soc_kcontrol_component(kcontrol);
+	struct sdm660_cdc_priv *sdm660_cdc =
+			snd_soc_component_get_drvdata(component);
 
 	if (!sdm660_cdc) {
 		pr_warn("%s: No sdm660_cdc\n", __func__);
@@ -2020,8 +2022,10 @@ static int regulator_mode_switch_get(struct snd_kcontrol *kcontrol,
 static int regulator_mode_switch_set(struct snd_kcontrol *kcontrol,
             struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
-	struct sdm660_cdc_priv *sdm660_cdc = snd_soc_codec_get_drvdata(codec);
+	struct snd_soc_component *component =
+			snd_soc_kcontrol_component(kcontrol);
+	struct sdm660_cdc_priv *sdm660_cdc =
+			snd_soc_component_get_drvdata(component);
 
 	pr_info("%s: ucontrol->value.integer.value[0] = %ld\n",
 		__func__, ucontrol->value.integer.value[0]);
@@ -2057,13 +2061,6 @@ static int regulator_mode_switch_set(struct snd_kcontrol *kcontrol,
 #endif /* VENDOR_EDIT */
 
 static const struct snd_kcontrol_new msm_anlg_cdc_snd_controls[] = {
-	#ifdef VENDOR_EDIT
-	/*Zhaoan.Xu@PSW.MM.AudioDriver.FTM, 2016/08/24,
-	 *Add for AT command to enable micbias.
-	 */
-	SOC_ENUM_EXT("Enable Micbias", msm_anlg_cdc_micbias_ctl_enum[0],
-		micbias_get, micbias_put),
-	#endif /* VENDOR_EDIT */
 
 	#ifdef VENDOR_EDIT
 	/*Jianfeng.Qiu@PSW.MM.AudioDriver.Codec, 2017/05/12,
