@@ -1,10 +1,11 @@
 
-#include <asm/uaccess.h>
+
+#include <linux/uaccess.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/proc_fs.h>
 #include <linux/fs.h>
-#include <soc/qcom/smem.h>
+#include <soc/oppo/oppo_smem.h>
 #include <soc/oppo/oppo_project.h>
 /*#include <mach/oppo_reserve3.h>*/
 #include <linux/io.h>
@@ -17,10 +18,7 @@ void init_project_version(void)
 {
         unsigned int len = (sizeof(ProjectInfoCDTType) + 3)&(~0x3);
 
-        format = (ProjectInfoCDTType *)smem_alloc(SMEM_PROJECT, len, 0, 0);
-        if (format == ERR_PTR(-EPROBE_DEFER)) {
-                format = NULL;
-        }
+        format = (ProjectInfoCDTType *)oppo_smem_get(SMEM_PROJECT, len);
 }
 
 
@@ -29,6 +27,8 @@ unsigned int get_project(void)
         if (format == NULL) {
                 init_project_version();
         }
+        if (format == NULL)
+                return 0;
         return format->nproject;
 }
 
@@ -46,6 +46,8 @@ unsigned char get_PCB_Version(void)
         if (format == NULL) {
                 init_project_version();
         }
+        if (format == NULL)
+                return 0;
         return format->npcbversion;
 }
 
@@ -54,6 +56,8 @@ unsigned char get_Modem_Version(void)
         if (format == NULL) {
                 init_project_version();
         }
+        if (format == NULL)
+                return 0;
         return format->nmodem;
 }
 
@@ -62,6 +66,8 @@ unsigned char get_Operator_Version(void)
         if (format == NULL) {
                 init_project_version();
         }
+        if (format == NULL)
+                return 0;
         return  format->noperator;
 }
 
@@ -71,6 +77,8 @@ unsigned char get_Oppo_Boot_Mode(void)
         if (format == NULL) {
                 init_project_version();
         }
+        if (format == NULL)
+                return 0;
         return  format->noppobootmode;
 }
 
@@ -316,6 +324,8 @@ void print_ocp(void)
         if (format == NULL) {
                 init_project_version();
         }
+        if (format == NULL)
+                return;
         printk("ocp:");
         for (i = 0;i < OCPCOUNTMAX;i++) {
                 printk(" %d", format->npmicocp[i]);
@@ -339,6 +349,8 @@ static ssize_t ocplog_read_proc(struct file *file, char __user *buf,
         if (format == NULL) {
                 init_project_version();
         }
+        if (format == NULL)
+                return 0;
         len += sprintf(&page[len], "ocp:");
         for (i = 0;i < OCPCOUNTMAX;i++) {
                 len += sprintf(&page[len], " %d", format->npmicocp[i]);

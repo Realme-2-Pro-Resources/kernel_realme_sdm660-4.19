@@ -12,9 +12,10 @@
    2.0      2015-04-13  hantong modify as platform device  to support diffrent configure in dts
 */
 
+#include <linux/uaccess.h>
 #include <linux/module.h>
 #include <linux/proc_fs.h>
-#include <soc/qcom/smem.h>
+#include <soc/oppo/oppo_smem.h>
 #include <soc/oppo/device_info.h>
 #include <soc/oppo/oppo_project.h>
 #include <linux/slab.h>
@@ -147,7 +148,7 @@ static void dram_type_add(void)
 	#if 0
 	p  = (int *)smem_alloc2(SMEM_DRAM_TYPE,4);
 	#else
-	p  = (int *)smem_alloc(SMEM_DRAM_TYPE,4,0,0);
+	p  = (int *)oppo_smem_get(SMEM_DRAM_TYPE, 4);
 	#endif
 
 	if(p)

@@ -1,7 +1,7 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/delay.h>
-#include <soc/qcom/smem.h>
+#include <soc/oppo/oppo_smem.h>
 #include <asm/uaccess.h>
 
 #include <linux/sysfs.h>
