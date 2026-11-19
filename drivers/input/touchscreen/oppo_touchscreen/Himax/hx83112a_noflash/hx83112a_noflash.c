@@ -138,35 +138,48 @@ static int himax_spi_write(uint8_t *buf, uint32_t length)
 static int himax_bus_read(uint8_t command, uint32_t length, uint8_t *data)
 {
     int result = 0;
-    uint8_t spi_format_buf[3];
+    uint8_t *spi_format_buf;
+    uint8_t *rx_buf;
+
+    spi_format_buf = kmalloc(3 + length, GFP_KERNEL);
+    if (!spi_format_buf)
+        return -ENOMEM;
+    rx_buf = spi_format_buf + 3;
 
     mutex_lock(&(g_chip_info->spi_lock));
     spi_format_buf[0] = 0xF3;
     spi_format_buf[1] = command;
     spi_format_buf[2] = 0x00;
 
-    result = himax_spi_read(&spi_format_buf[0], 3, data, length, 10);
+    result = himax_spi_read(spi_format_buf, 3, rx_buf, length, 10);
+    if (result == 0 && data && length > 0)
+        memcpy(data, rx_buf, length);
     mutex_unlock(&(g_chip_info->spi_lock));
 
+    kfree(spi_format_buf);
     return result;
 }
 
 static int himax_bus_write(uint8_t command, uint32_t length, uint8_t *data)
 {
-    uint8_t spi_format_buf[length + 2];
-    int i = 0;
+    uint8_t *spi_format_buf;
     int result = 0;
+
+    spi_format_buf = kmalloc(length + 2, GFP_KERNEL);
+    if (!spi_format_buf)
+        return -ENOMEM;
 
     mutex_lock(&(g_chip_info->spi_lock));
     spi_format_buf[0] = 0xF2;
     spi_format_buf[1] = command;
 
-    for (i = 0; i < length; i++)
-        spi_format_buf[i + 2] = data[i];
+    if (data && length > 0)
+        memcpy(&spi_format_buf[2], data, length);
 
     result = himax_spi_write(spi_format_buf, length + 2);
     mutex_unlock(&(g_chip_info->spi_lock));
 
+    kfree(spi_format_buf);
     return result;
 }
 

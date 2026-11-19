@@ -688,12 +688,20 @@ int32_t CTP_SPI_READ(struct spi_device *client, uint8_t *buf, uint16_t len)
 {
 	int32_t ret = -1;
 	int32_t retries = 0;
-        uint8_t rbuf[SPI_TANSFER_LEN+1] = {0};
+	uint8_t *tbuf;
+	uint8_t *rbuf;
+	size_t xfer_len = max_t(size_t, len + DUMMY_BYTES, SPI_TANSFER_LEN + 1);
+
+	tbuf = kzalloc(xfer_len * 2, GFP_KERNEL);
+	if (!tbuf)
+		return -ENOMEM;
+	rbuf = tbuf + xfer_len;
 
 	buf[0] = SPI_READ_MASK(buf[0]);
+	memcpy(tbuf, buf, len);
 
 	while (retries < 5) {
-		ret = spi_read_write(client, buf, len, rbuf, SPIREAD);
+		ret = spi_read_write(client, tbuf, len, rbuf, SPIREAD);
 		if (ret == 0) break;
 		retries++;
 	}
@@ -705,6 +713,7 @@ int32_t CTP_SPI_READ(struct spi_device *client, uint8_t *buf, uint16_t len)
 		memcpy((buf+1), (rbuf+2), (len-1));
 	}
 
+	kfree(tbuf);
 	return ret;
 }
 
@@ -719,11 +728,15 @@ int32_t CTP_SPI_WRITE(struct spi_device *client, uint8_t *buf, uint16_t len)
 {
 	int32_t ret = -1;
 	int32_t retries = 0;
+	uint8_t *tbuf;
 
 	buf[0] = SPI_WRITE_MASK(buf[0]);
+	tbuf = kmemdup(buf, len, GFP_KERNEL);
+	if (!tbuf)
+		return -ENOMEM;
 
 	while (retries < 5) {
-		ret = spi_read_write(client, buf, len, NULL, SPIWRITE);
+		ret = spi_read_write(client, tbuf, len, NULL, SPIWRITE);
 		if (ret == 0)	break;
 		retries++;
 	}
@@ -733,6 +746,7 @@ int32_t CTP_SPI_WRITE(struct spi_device *client, uint8_t *buf, uint16_t len)
 		ret = -EIO;
 	}
 
+	kfree(tbuf);
 	return ret;
 }
 

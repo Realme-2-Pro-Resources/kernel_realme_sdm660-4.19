@@ -1221,6 +1221,11 @@ msm_spi_use_dma(struct msm_spi *dd, struct spi_transfer *tr, u8 bpw)
 	if (dd->cur_msg_len < 3*dd->input_block_size)
 		return false;
 
+	if (tr->tx_buf && !virt_addr_valid(tr->tx_buf))
+		return false;
+	if (tr->rx_buf && !virt_addr_valid(tr->rx_buf))
+		return false;
+
 	if ((dd->qup_ver != SPI_QUP_VERSION_BFAM) &&
 		 !dd->read_len && !dd->write_len)
 		return false;
