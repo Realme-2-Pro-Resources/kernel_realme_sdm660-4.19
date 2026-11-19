@@ -7,7 +7,8 @@
 #include <linux/irqreturn.h>
 #include <linux/regulator/driver.h>
 #include <linux/regulator/consumer.h>
-#include <linux/extcon.h>
+#include <linux/extcon-provider.h>
+#include <linux/iio/consumer.h>
 
 #include "../../supply/qcom/smb-reg.h"
 #include "../../supply/qcom/battery.h"
@@ -46,7 +47,9 @@ enum print_reason {
 #define USBIN_USBIN_BOOST_VOTER		"USBIN_USBIN_BOOST_VOTER"
 #define HVDCP_INDIRECT_VOTER		"HVDCP_INDIRECT_VOTER"
 #define MICRO_USB_VOTER			"MICRO_USB_VOTER"
+#ifndef DEBUG_BOARD_VOTER
 #define DEBUG_BOARD_VOTER		"DEBUG_BOARD_VOTER"
+#endif
 #define PD_SUSPEND_SUPPORTED_VOTER	"PD_SUSPEND_SUPPORTED_VOTER"
 #define PL_DELAY_VOTER			"PL_DELAY_VOTER"
 #define CTM_VOTER			"CTM_VOTER"
@@ -133,8 +136,6 @@ struct smb_irq_info {
 static const unsigned int smblib_extcon_cable[] = {
 	EXTCON_USB,
 	EXTCON_USB_HOST,
-	EXTCON_USB_CC,
-	EXTCON_USB_SPEED,
 	EXTCON_NONE,
 };
 
@@ -228,6 +229,7 @@ struct smb_charger {
 	enum smb_mode		mode;
 	struct smb_chg_freq	chg_freq;
 	int			smb_version;
+	struct charger_param	chg_param;
 	int			otg_delay_ms;
 	int			*weak_chg_icl_ua;
 
@@ -395,7 +397,7 @@ struct smb2 {
 
 struct qcom_pmic {
 	struct smb2 *smb2_chip;
-	struct qpnp_vadc_chip	*pm660_vadc_dev;
+	struct iio_channel	*chargerid_chan;
 
 	/* for complie*/
 	bool			otg_pulse_skip_dis;

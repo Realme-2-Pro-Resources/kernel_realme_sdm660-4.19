@@ -1,3 +1,24 @@
 source "drivers/power/avs/Kconfig"
+
+config OPPO_MSM8998P_CHARGER
+	tristate "OPPO MSM8998P charger driver"
+	depends on MFD_SPMI_PMIC
+	help
+	  Enables support for the oppo charging framework
+
+config OPPO_RTC_DET_SUPPORT
+	bool "OPPO RTC DET SUPPORT"
+	depends on OPPO_MSM8998P_CHARGER
+
+config OPPO_CHECK_CHARGERID_VOLT
+	bool "OPPO CHECK CHARGERID VOLT"
+	depends on OPPO_MSM8998P_CHARGER
+
+config OPPO_SHIP_MODE_SUPPORT
+	bool "OPPO_SHIP_MODE_SUPPORT"
+	depends on OPPO_MSM8998P_CHARGER
+
+source "drivers/power/oppo/Kconfig"
+
 source "drivers/power/reset/Kconfig"
 source "drivers/power/supply/Kconfig"

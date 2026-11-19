@@ -13,6 +13,7 @@
 * Revision 1.0        2015-06-22        Fanhong.Kong@ProDrv.CHG        Created for new architecture
 * Revision 1.1        2016-03-07        wenbin.liu@SW.Bsp.Driver       edit for log optimize
 ***********************************************************************************/
+#include <linux/uaccess.h>
 #include <linux/delay.h>
 #include <linux/power_supply.h>
 #include <linux/proc_fs.h>
@@ -57,7 +58,7 @@
 #include <linux/qpnp/qpnp-adc.h>
 #include <linux/batterydata-lib.h>
 #include <linux/of_batterydata.h>
-#include <linux/msm_bcl.h>
+/* <linux/msm_bcl.h> is gone on 4.19; nothing from it is used */
 #include <linux/ktime.h>
 #include <linux/kernel.h>
 #endif

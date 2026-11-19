@@ -10,6 +10,7 @@
  * GNU General Public License for more details.
  */
 
+#include <linux/uaccess.h>
 #include <linux/debugfs.h>
 #include <linux/delay.h>
 #include <linux/device.h>
@@ -3666,7 +3667,7 @@ static void smblib_micro_usb_plugin(struct smb_charger *chg, bool vbus_rising)
 	} else {
 		chg->typec_present = 0;
 		smblib_update_usb_type(chg);
-		extcon_set_cable_state_(chg->extcon, EXTCON_USB, false);
+		extcon_set_state_sync(chg->extcon, EXTCON_USB, false);
 		smblib_uusb_removal(chg);
 	}
 }
@@ -4095,30 +4096,35 @@ static void smblib_force_legacy_icl(struct smb_charger *chg, int pst)
 	}
 }
 
-static void smblib_notify_extcon_props(struct smb_charger *chg)
+static void smblib_notify_extcon_props(struct smb_charger *chg, int id)
 {
-	union power_supply_propval val;
+	union extcon_property_value val;
+	union power_supply_propval prop_val;
 
-	smblib_get_prop_typec_cc_orientation(chg, &val);
-	extcon_set_cable_state_(chg->extcon, EXTCON_USB_CC,
-					(val.intval == 2) ? 1 : 0);
-	extcon_set_cable_state_(chg->extcon, EXTCON_USB_SPEED, true);
+	smblib_get_prop_typec_cc_orientation(chg, &prop_val);
+	val.intval = ((prop_val.intval == 2) ? 1 : 0);
+	extcon_set_property(chg->extcon, id,
+				EXTCON_PROP_USB_TYPEC_POLARITY, val);
+
+	val.intval = true;
+	extcon_set_property(chg->extcon, id,
+				EXTCON_PROP_USB_SS, val);
 }
 
 static void smblib_notify_device_mode(struct smb_charger *chg, bool enable)
 {
 	if (enable)
-		smblib_notify_extcon_props(chg);
+		smblib_notify_extcon_props(chg, EXTCON_USB);
 
-	extcon_set_cable_state_(chg->extcon, EXTCON_USB, enable);
+	extcon_set_state_sync(chg->extcon, EXTCON_USB, enable);
 }
 
 static void smblib_notify_usb_host(struct smb_charger *chg, bool enable)
 {
 	if (enable)
-		smblib_notify_extcon_props(chg);
+		smblib_notify_extcon_props(chg, EXTCON_USB_HOST);
 
-	extcon_set_cable_state_(chg->extcon, EXTCON_USB_HOST, enable);
+	extcon_set_state_sync(chg->extcon, EXTCON_USB_HOST, enable);
 }
 
 #define HVDCP_DET_MS 2500
@@ -4138,7 +4144,7 @@ static void smblib_handle_apsd_done(struct smb_charger *chg, bool rising)
 	case SDP_CHARGER_BIT:
 	case CDP_CHARGER_BIT:
 		if (chg->micro_usb_mode)
-			extcon_set_cable_state_(chg->extcon, EXTCON_USB,
+			extcon_set_state_sync(chg->extcon, EXTCON_USB,
 					true);
 		if (chg->use_extcon)
 			smblib_notify_device_mode(chg, true);
@@ -4783,7 +4789,7 @@ static void smblib_uusb_otg_work(struct work_struct *work)
 		chg_debug("smblib_handle_usb_typec_change_for_uusb: [%d]\n", otg_status);
 	}
 #endif
-	extcon_set_cable_state_(chg->extcon, EXTCON_USB_HOST, otg);
+	extcon_set_state_sync(chg->extcon, EXTCON_USB_HOST, otg);
 	smblib_dbg(chg, PR_REGISTER, "TYPE_C_STATUS_3 = 0x%02x OTG=%d\n",
 			stat, otg);
 	power_supply_changed(chg->usb_psy);
@@ -5519,15 +5525,15 @@ int smblib_init(struct smb_charger *chg)
 
 	switch (chg->mode) {
 	case PARALLEL_MASTER:
-		rc = qcom_batt_init();
+		rc = qcom_batt_init(&chg->chg_param);
 		if (rc < 0) {
 			smblib_err(chg, "Couldn't init qcom_batt_init rc=%d\n",
 				rc);
 			return rc;
 		}
 
-		rc = qcom_step_chg_init(chg->step_chg_enabled,
-						chg->sw_jeita_enabled);
+		rc = qcom_step_chg_init(chg->dev, chg->step_chg_enabled,
+						chg->sw_jeita_enabled, true);
 		if (rc < 0) {
 			smblib_err(chg, "Couldn't init qcom_step_chg_init rc=%d\n",
 				rc);
@@ -7924,6 +7930,7 @@ static int smb2_chg_config_init(struct smb2 *chip)
 	switch (pmic_rev_id->pmic_subtype) {
 	case PMI8998_SUBTYPE:
 		chip->chg.smb_version = PMI8998_SUBTYPE;
+		chip->chg.chg_param.smb_version = PMI8998_SUBTYPE;
 		chip->chg.wa_flags |= BOOST_BACK_WA | QC_AUTH_INTERRUPT_WA_BIT;
 		if (pmic_rev_id->rev4 == PMI8998_V1P1_REV4) /* PMI rev 1.1 */
 			chg->wa_flags |= QC_CHARGER_DETECTION_WA_BIT;
@@ -7939,6 +7946,7 @@ static int smb2_chg_config_init(struct smb2 *chip)
 		break;
 	case PM660_SUBTYPE:
 		chip->chg.smb_version = PM660_SUBTYPE;
+		chip->chg.chg_param.smb_version = PM660_SUBTYPE;
 		chip->chg.wa_flags |= BOOST_BACK_WA | OTG_WA;
 		chg->param.freq_buck = pm660_params.freq_buck;
 		chg->param.freq_boost = pm660_params.freq_boost;
@@ -8960,23 +8968,22 @@ static bool qcom_check_charger_resume(struct oppo_chg_chip *chip)
 static int smbchg_get_chargerid_volt(struct oppo_chg_chip *chip)
 {
 	int rc = 0;
-	int chargerid_volt = 0;
-	struct qpnp_vadc_result results;
+	int chargerid_uv = 0;
 
-	if (!chip->pmic_spmi.pm660_vadc_dev) {
-		chg_err("pm660_vadc_dev NULL\n");
+	if (!chip->pmic_spmi.chargerid_chan) {
+		chg_err("chargerid channel NULL\n");
 		return 0;
 	}
 
-	rc = qpnp_vadc_read(chip->pmic_spmi.pm660_vadc_dev, P_MUX3_1_1, &results);
-	if (rc) {
-		chg_err("unable to read pm660_vadc_dev P_MUX3_1_1 rc = %d\n", rc);
+	rc = iio_read_channel_processed(chip->pmic_spmi.chargerid_chan,
+					&chargerid_uv);
+	if (rc < 0) {
+		chg_err("unable to read chargerid channel rc = %d\n", rc);
 		return 0;
 	}
-	chargerid_volt = (int)results.physical / 1000;
-	chg_err("chargerid_volt: %d\n", chargerid_volt);
+	chg_err("chargerid_volt: %d\n", chargerid_uv / 1000);
 
-	return chargerid_volt;
+	return chargerid_uv / 1000;
 }
 
 static int smbchg_chargerid_switch_gpio_init(struct oppo_chg_chip *chip)
@@ -9823,18 +9830,16 @@ static int smb2_probe(struct platform_device *pdev)
 
 #ifdef VENDOR_EDIT
 /* Jianchao.Shi@BSP.CHG.Basic, 2017/01/22, sjc Add for charging*/
-	if (of_find_property(oppo_chip->dev->of_node, "qcom,pm660chg-vadc", NULL)) {
-		oppo_chip->pmic_spmi.pm660_vadc_dev = qpnp_get_vadc(oppo_chip->dev, "pm660chg");
-		if (IS_ERR(oppo_chip->pmic_spmi.pm660_vadc_dev)) {
-			rc = PTR_ERR(oppo_chip->pmic_spmi.pm660_vadc_dev);
-			oppo_chip->pmic_spmi.pm660_vadc_dev = NULL;
-			if (rc != -EPROBE_DEFER)
-				chg_err("Couldn't get vadc rc=%d\n", rc);
-			else {
-				chg_err("Couldn't get vadc, try again...\n");
-				return -EPROBE_DEFER;
-			}
+	oppo_chip->pmic_spmi.chargerid_chan =
+		devm_iio_channel_get(oppo_chip->dev, "chargerid");
+	if (IS_ERR(oppo_chip->pmic_spmi.chargerid_chan)) {
+		rc = PTR_ERR(oppo_chip->pmic_spmi.chargerid_chan);
+		oppo_chip->pmic_spmi.chargerid_chan = NULL;
+		if (rc == -EPROBE_DEFER) {
+			chg_err("Couldn't get chargerid channel, try again...\n");
+			return -EPROBE_DEFER;
 		}
+		chg_err("Couldn't get chargerid channel rc=%d\n", rc);
 	}
 #endif
 
