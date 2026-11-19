@@ -334,7 +334,7 @@ struct fg_batt_props {
 	int		*rslow_low_coeffs;
 #ifdef VENDOR_EDIT
 /* Ji.Xu PSW.BSP.CHG  2018-07-13  Add for anthenticate battery */
-	int		batt_id;
+	u32		batt_id;
 #endif
 };
 
@@ -514,13 +514,6 @@ struct fg_dev {
 	struct work_struct	esr_filter_work;
 	struct alarm		esr_filter_alarm;
 	ktime_t			last_delta_temp_time;
-#ifdef VENDOR_EDIT
-/* Ji.Xu PSW.BSP.CHG  2018-07-23  Save battery capacity to persist partition */
-    int				batt_info[6];
-    int				batt_info_id;
-    bool			*batt_range_ocv;
-    int				*batt_range_pct;
-#endif
 };
 
 /* Debugfs data structures are below */

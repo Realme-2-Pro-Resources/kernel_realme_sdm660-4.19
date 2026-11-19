@@ -26,28 +26,8 @@
 #include <soc/oppo/device_info.h>
 
 static bool use_fg_chip = true;
-static struct fg_chip *fg_gen3_chip = NULL;
-#endif
-
-#ifdef VENDOR_EDIT
-/* Ji.Xu PSW.BSP.CHG  2018-07-23  Save battery capacity to persist partition */
-static bool healthd_ready = false;
-
-static bool fg_batt_valid_ocv = false;
-module_param_named(batt_valid_ocv, fg_batt_valid_ocv, bool, S_IRUSR | S_IWUSR);
-
-static int fg_batt_range_pct = 20;
-module_param_named(batt_range_pct, fg_batt_range_pct, int, S_IRUSR | S_IWUSR);
-
-enum batt_info_params {
-	BATT_INFO_NOTIFY = 0,
-	BATT_INFO_SOC,
-	BATT_INFO_RES_ID,
-	BATT_INFO_VOLTAGE,
-	BATT_INFO_TEMP,
-	BATT_INFO_FCC,
-	BATT_INFO_MAX,
-};
+/* The OPPO gauge ops below have no context argument; keep the chip here */
+static struct fg_gen3_chip *fg_gen3_chip;
 #endif
 
 #define FG_GEN3_DEV_NAME	"qcom,fg-gen3"
@@ -785,21 +765,6 @@ static int fg_get_prop_capacity(struct fg_dev *fg, int *val)
 }
 #endif
 
-#ifdef VENDOR_EDIT
-static int fg_set_battery_info(struct fg_chip *chip, int val)
-{
-	if (chip->batt_info_id < 0 ||
-			chip->batt_info_id >= BATT_INFO_MAX) {
-		pr_err("Invalid batt_info_id %d\n", chip->batt_info_id);
-		chip->batt_info_id = 0;
-		return -EINVAL;
-	}
-
-	chip->batt_info[chip->batt_info_id] = val;
-
-	return 0;
-}
-#endif
 
 static int fg_get_prop_real_capacity(struct fg_dev *fg, int *val)
 {
@@ -856,10 +821,10 @@ out:
 
 #ifdef VENDOR_EDIT
 /* Ji.Xu PSW.BSP.CHG  2018-07-13  Add for anthenticate battery */
-static void register_gauge_devinfo(struct fg_chip *chip)
+static void register_gauge_devinfo(struct fg_dev *chip)
 {
 	int rc = 0;
-	char *version;
+	char *version = "BATTERY: ABNORMAL!!!";
 	char *manufacture;
 
 	if (chip->oppo_battery_type == OPPO_ATL_BATT) {
@@ -925,19 +890,18 @@ static int fg_get_batt_profile(struct fg_dev *fg)
 #ifdef VENDOR_EDIT
 /* Ji.Xu PSW.BSP.CHG  2018-07-13  Add for anthenticate battery */
 	rc = of_property_read_u32(profile_node, "qcom,batt-id-kohm",
-			&chip->bp.batt_id);
+			&fg->bp.batt_id);
 	if (rc < 0) {
 		pr_err("battery resistence unavailable, rc:%d\n", rc);
 		return rc;
 	}
 
-	if (chip->bp.batt_id == BATTID_ATL_RESISTANCE && !chip->profile_not_available) {
-		chip->oppo_battery_type = OPPO_ATL_BATT;
-	}else if (chip->bp.batt_id == BATTID_SDI_RESISTANCE && !chip->profile_not_available) {
-		chip->oppo_battery_type = OPPO_SDI_BATT;
-	} else {
-		chip->oppo_battery_type = NON_STD_BATT;
-	}
+	if (fg->bp.batt_id == BATTID_ATL_RESISTANCE && !fg->profile_not_available)
+		fg->oppo_battery_type = OPPO_ATL_BATT;
+	else if (fg->bp.batt_id == BATTID_SDI_RESISTANCE && !fg->profile_not_available)
+		fg->oppo_battery_type = OPPO_SDI_BATT;
+	else
+		fg->oppo_battery_type = NON_STD_BATT;
 #endif
 
 	rc = of_property_read_u32(profile_node, "qcom,max-voltage-uv",
@@ -974,8 +938,8 @@ static int fg_get_batt_profile(struct fg_dev *fg)
 
 #ifdef VENDOR_EDIT
 /* Ji.Xu PSW.BSP.CHG  2018-07-13  Add for anthenticate battery */
-	register_gauge_devinfo(chip);
-	chip->profile_not_available = false;
+	register_gauge_devinfo(fg);
+	fg->profile_not_available = false;
 #endif
 	fg->profile_available = true;
 	memcpy(chip->batt_profile, data, len);
@@ -2985,7 +2949,7 @@ static void profile_load_work(struct work_struct *work)
 			fg->batt_id_ohms / 1000, rc);
 #ifdef VENDOR_EDIT
 /* Ji.Xu PSW.BSP.CHG  2018-07-13  Add for anthenticate battery */
-		chip->profile_not_available = true;
+		fg->profile_not_available = true;
 #endif
 		goto out;
 	}
@@ -3067,8 +3031,8 @@ done:
 out:
 #ifdef VENDOR_EDIT
 /* Ji.Xu PSW.BSP.CHG  2018-07-13  Add for anthenticate battery */
-	if(chip->profile_not_available)
-		schedule_delayed_work(&chip->profile_load_work, 0);
+	if (fg->profile_not_available)
+		schedule_delayed_work(&fg->profile_load_work, 0);
 #endif
 	fg->soc_reporting_ready = true;
 	vote(fg->awake_votable, ESR_FCC_VOTER, true, 0);
@@ -3866,26 +3830,6 @@ static int fg_psy_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_SOC_REPORTING_READY:
 		pval->intval = fg->soc_reporting_ready;
 		break;
-#ifdef VENDOR_EDIT
-/* Ji.Xu PSW.BSP.CHG  2018-07-23  Save battery capacity to persist partition */
-	case POWER_SUPPLY_PROP_BATTERY_INFO:
-		if (chip->batt_info_id < 0 || chip->batt_info_id >= BATT_INFO_MAX)
-			return -EINVAL;
-		pval->intval = chip->batt_info[chip->batt_info_id];
-		break;
-	case POWER_SUPPLY_PROP_BATTERY_INFO_ID:
-		pval->intval = chip->batt_info_id;
-		break;
-    case POWER_SUPPLY_PROP_SOC_NOTIFY_READY:
-		pval->intval = healthd_ready;
-		break;
-	case POWER_SUPPLY_PROP_RESTORE_SOC:
-		if (healthd_ready)
-			pval->intval = chip->batt_info[BATT_INFO_SOC];
-		else
-			pval->intval = -1;
-		break;
-#endif
 	case POWER_SUPPLY_PROP_DEBUG_BATTERY:
 		pval->intval = is_debug_batt_id(fg);
 		break;
@@ -4024,20 +3968,6 @@ static int fg_psy_set_property(struct power_supply *psy,
 	int rc = 0;
 
 	switch (psp) {
-#ifdef VENDOR_EDIT
-/* Ji.Xu PSW.BSP.CHG  2018-07-23  Save battery capacity to persist partition */
-	case POWER_SUPPLY_PROP_BATTERY_INFO:
-		rc = fg_set_battery_info(chip, pval->intval);
-		break;
-	case POWER_SUPPLY_PROP_BATTERY_INFO_ID:
-		chip->batt_info_id = pval->intval;
-		break;
-	case POWER_SUPPLY_PROP_SOC_NOTIFY_READY:
-		healthd_ready = pval->intval;
-		pr_debug("healthd running, reset 5s_thread\n");
-		oppo_chg_wake_update_work();
-		break;
-#endif
 	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_VOLTAGE:
 		rc = fg_set_constant_chg_voltage(fg, pval->intval);
 		break;
@@ -4129,13 +4059,6 @@ static int fg_property_is_writeable(struct power_supply *psy,
 						enum power_supply_property psp)
 {
 	switch (psp) {
-#ifdef VENDOR_EDIT
-/* Ji.Xu PSW.BSP.CHG  2018-07-23  Save battery capacity to persist partition */
-	case POWER_SUPPLY_PROP_BATTERY_INFO:
-	case POWER_SUPPLY_PROP_BATTERY_INFO_ID:
-	case POWER_SUPPLY_PROP_SOC_NOTIFY_READY:
-		return 1;
-#endif
 	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_VOLTAGE:
 	case POWER_SUPPLY_PROP_CC_STEP:
 	case POWER_SUPPLY_PROP_CC_STEP_SEL:
@@ -4235,13 +4158,6 @@ static enum power_supply_property fg_psy_props[] = {
 	POWER_SUPPLY_PROP_TIME_TO_EMPTY_AVG,
 	POWER_SUPPLY_PROP_TIME_TO_FULL_NOW,
 	POWER_SUPPLY_PROP_SOC_REPORTING_READY,
-#ifdef VENDOR_EDIT
-/* Ji.Xu PSW.BSP.CHG  2018-07-23  Save battery capacity to persist partition */
-	POWER_SUPPLY_PROP_SOC_NOTIFY_READY,
-	POWER_SUPPLY_PROP_BATTERY_INFO,
-	POWER_SUPPLY_PROP_BATTERY_INFO_ID,
-	POWER_SUPPLY_PROP_RESTORE_SOC,
-#endif
 	POWER_SUPPLY_PROP_DEBUG_BATTERY,
 	POWER_SUPPLY_PROP_CONSTANT_CHARGE_VOLTAGE,
 	POWER_SUPPLY_PROP_CC_STEP,
@@ -5580,7 +5496,7 @@ static int fg_get_battery_mvolts(void)
                 return DEFAULT_BATT_VOLT;
         }
 
-        rc = fg_get_battery_voltage(fg_gen3_chip, &batt_uv);
+        rc = fg_get_battery_voltage(&fg_gen3_chip->fg, &batt_uv);
 		if (rc < 0) {
                 pr_err("failed to get battery voltage, return 3800mv!\n");
                 return DEFAULT_BATT_VOLT;
@@ -5597,7 +5513,7 @@ static int fg_get_battery_temperature(void)
                 return DEFAULT_BATT_TEMP;
         }
 
-        rc = fg_get_battery_temp(fg_gen3_chip, &batt_temp);
+        rc = fg_get_battery_temp(&fg_gen3_chip->fg, &batt_temp);
         if (rc < 0) {
                 pr_err("failed to get battery temp, return 25C\n");
                 return DEFAULT_BATT_TEMP;
@@ -5619,7 +5535,7 @@ static int fg_get_battery_soc(void)
 	        return DEFAULT_BATT_SOC;
 	}
 
-	rc = fg_get_prop_capacity(fg_gen3_chip, &batt_soc);
+	rc = fg_get_prop_capacity(&fg_gen3_chip->fg, &batt_soc);
 	if (rc < 0) {
 	        pr_err("failed to get battery soc, return 50!\n");
 	        return DEFAULT_BATT_SOC;
@@ -5636,7 +5552,7 @@ static int fg_get_battery_current_now(void)
                 return DEFAULT_BATT_CURRENT;
         }
 
-        rc = fg_get_battery_current(fg_gen3_chip, &batt_ua);
+        rc = fg_get_battery_current(&fg_gen3_chip->fg, &batt_ua);
 		if (rc < 0) {
                 pr_err("failed to get battery current, return 500!\n");
                 return DEFAULT_BATT_CURRENT;
@@ -5684,7 +5600,7 @@ static bool fg_get_battery_authenticate(void)
 		return false;
 	}
 
-	if (fg_gen3_chip->oppo_battery_type == NON_STD_BATT) {
+	if (fg_gen3_chip->fg.oppo_battery_type == NON_STD_BATT) {
 	    return false;
 	} else {
 	    return true;
@@ -5912,14 +5828,14 @@ static int fg_gen3_probe(struct platform_device *pdev)
 /* Ji.Xu  PSW.BSP.CHG  2018-06-27  Porting code for charge function */
 	fg_gen3_chip = chip;
 	if(use_fg_chip) {
-		fg_oppo_gauge_chip = devm_kzalloc(chip->dev,
+		fg_oppo_gauge_chip = devm_kzalloc(fg->dev,
 			sizeof(struct oppo_gauge_chip), GFP_KERNEL);
 		if (!fg_oppo_gauge_chip) {
 			pr_err("kzalloc() failed.\n");
 			fg_gen3_chip = NULL;
 			return -ENOMEM;
 		} else {
-			fg_oppo_gauge_chip->dev = chip->dev;
+			fg_oppo_gauge_chip->dev = fg->dev;
 			fg_oppo_gauge_chip->gauge_ops = &fg_gauge;
 			oppo_gauge_init(fg_oppo_gauge_chip);
             chg_err("[chg_gauge_init]gauge chip init done\n");
@@ -5950,13 +5866,6 @@ static int fg_gen3_probe(struct platform_device *pdev)
 	device_init_wakeup(fg->dev, true);
 	schedule_delayed_work(&fg->profile_load_work, 0);
 
-#ifdef VENDOR_EDIT
-/* Ji.Xu PSW.BSP.CHG  2018-07-23  Save battery capacity to persist partition */
-	chip->batt_range_ocv = &fg_batt_valid_ocv;
-	chip->batt_range_pct = &fg_batt_range_pct;
-	chip->soc_reporting_ready = true;
-	memset(chip->batt_info, 0, sizeof(chip->batt_info));
-#endif
 
 	pr_debug("FG GEN3 driver probed successfully\n");
 	return 0;
