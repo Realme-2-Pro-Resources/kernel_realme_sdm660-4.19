@@ -25,6 +25,12 @@
     /delete-property/ gpio;
 };
 
+&cam_sensor_eldo3_default {
+    /delete-property/ output-high;
+    pins = "gpio7";
+    output-low;
+};
+
 &cam_dvdd_gpio_regulator {
     gpio = <&pm660l_gpios 7 0>;
 };
