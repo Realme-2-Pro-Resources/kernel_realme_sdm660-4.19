@@ -240,6 +240,12 @@ config ARCH_SDM660
 	  This enables support for the SDM660 chipset. If you do not
 	  wish to build a kernel that runs on this chipset, say 'N' here.
 
+config MACH_REALME_RMX1801
+	bool "Realme 2 Pro (RMX1801)"
+	depends on ARCH_SDM660
+	help
+	  Build only the Realme 2 Pro (RMX1801) device tree.
+
 config ARCH_REALTEK
 	bool "Realtek Platforms"
 	help
