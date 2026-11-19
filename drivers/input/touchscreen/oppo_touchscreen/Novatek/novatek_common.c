@@ -13,6 +13,7 @@
  *  <author >  <data>  <version>  <desc>
  ***************************************************/
 
+#include <linux/uaccess.h>
 #include "../touchpanel_common.h"
 #include "novatek_common.h"
 

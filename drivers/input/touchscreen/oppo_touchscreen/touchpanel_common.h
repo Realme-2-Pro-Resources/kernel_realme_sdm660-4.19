@@ -15,6 +15,19 @@
 #define _TOUCHPANEL_COMMON_H_
 
 /*********PART1:Head files**********************/
+#include <linux/syscalls.h>
+#include <linux/fdtable.h>
+#include <linux/sched.h>
+
+/*
+ * The sys_* entry points are no longer callable from kernel code on 4.19.
+ * Map the factory self-test report writers onto the in-kernel helpers.
+ */
+#define sys_open(name, flags, mode)	do_sys_open(AT_FDCWD, name, flags, mode)
+#define sys_close(fd)			__close_fd(current->files, fd)
+#define sys_write(fd, buf, count)	ksys_write(fd, buf, count)
+#define sys_mkdir(name, mode)		ksys_mkdir(name, mode)
+
 #include <linux/input/mt.h>
 #include <linux/input.h>
 #include <linux/gpio.h>
