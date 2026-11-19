@@ -690,7 +690,8 @@ int32_t CTP_SPI_READ(struct spi_device *client, uint8_t *buf, uint16_t len)
 	int32_t retries = 0;
 	uint8_t *tbuf;
 	uint8_t *rbuf;
-	size_t xfer_len = max_t(size_t, len + DUMMY_BYTES, SPI_TANSFER_LEN + 1);
+	size_t xfer_len = ALIGN(max_t(size_t, len + DUMMY_BYTES, SPI_TANSFER_LEN + 1),
+				ARCH_DMA_MINALIGN);
 
 	tbuf = kzalloc(xfer_len * 2, GFP_KERNEL);
 	if (!tbuf)

@@ -5086,6 +5086,9 @@ static void speedup_resume(struct work_struct *work)
 
     TPD_INFO("%s is called\n", __func__);
 
+    if (ts->lcd_trigger_load_tp_fw_support)
+        flush_work(&ts->lcd_trigger_load_tp_fw_work);
+
     //step1: get mutex for locking i2c acess flow
     mutex_lock(&ts->mutex);
 

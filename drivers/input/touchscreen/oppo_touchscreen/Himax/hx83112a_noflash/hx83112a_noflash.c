@@ -141,10 +141,11 @@ static int himax_bus_read(uint8_t command, uint32_t length, uint8_t *data)
     uint8_t *spi_format_buf;
     uint8_t *rx_buf;
 
-    spi_format_buf = kmalloc(3 + length, GFP_KERNEL);
+    spi_format_buf = kmalloc(ALIGN(3, ARCH_DMA_MINALIGN) +
+                             ALIGN(length, ARCH_DMA_MINALIGN), GFP_KERNEL);
     if (!spi_format_buf)
         return -ENOMEM;
-    rx_buf = spi_format_buf + 3;
+    rx_buf = spi_format_buf + ALIGN(3, ARCH_DMA_MINALIGN);
 
     mutex_lock(&(g_chip_info->spi_lock));
     spi_format_buf[0] = 0xF3;
@@ -1511,7 +1512,11 @@ void himax_mcu_0f_operation(struct work_struct *work)
     g_core_fp.fp_firmware_update_0f (g_chip_info->g_fw_entry);
     //release_firmware (g_chip_info->g_fw_entry);
 
-    g_core_fp.fp_reload_disable(0);
+    if (g_core_fp.fp_reload_disable(0))
+        pr_info("[TP]himax,hx83112a_nf: 0f fw update done (headfile=%d)\n",
+                g_chip_info->using_headfile);
+    else
+        pr_err("[TP]himax,hx83112a_nf: 0f fw update reload_disable failed\n");
     msleep (10);
     himax_read_FW_ver();
     msleep (10);
@@ -1837,7 +1842,8 @@ bool himax_ic_package_check(void)
         tmp_addr[0] = 0xD0;
         himax_register_read(tmp_addr, 4, tmp_data, false);
 
-        TPD_INFO("%s:Read driver IC ID = %X,%X,%X\n", __func__, tmp_data[3],tmp_data[2],tmp_data[1]);
+        pr_info("[TP]himax,hx83112a_nf: Read driver IC ID = %02X,%02X,%02X\n",
+                tmp_data[3], tmp_data[2], tmp_data[1]);
         /*if ((tmp_data[3] == 0x83) && (tmp_data[2] == 0x11) && ((tmp_data[1] == 0x2a)||(tmp_data[1] == 0x2b)))*/
         if(1)
         {
@@ -4953,7 +4959,6 @@ static void hx83112b_exit_esd_mode(void *chip_data)
  */
 static int hx83112b_reset(void *chip_data)
 {
-    struct chip_data_hx83112b *chip_info = (struct chip_data_hx83112b *)chip_data;
     int ret = 0;
     int load_fw_times = 10;
 
@@ -4967,9 +4972,6 @@ static int hx83112b_reset(void *chip_data)
     //esd hw reset
     HX_ESD_RESET_ACTIVATE = 0;
 
-    //hx83112b_enable_interrupt(g_chip_info, false);
-    disable_irq_nosync(chip_info->hx_irq);
-
     do {
         load_fw_times--;
         g_core_fp.fp_0f_operation_dirly();
@@ -4977,12 +4979,12 @@ static int hx83112b_reset(void *chip_data)
     } while (!ret && load_fw_times > 0);
 
     if (!load_fw_times) {
-        TPD_INFO("%s: load_fw_times over 10 times\n", __func__);
+        pr_err("[TP]himax,hx83112a_nf: %s load_fw_times over 10 times\n", __func__);
+    } else {
+        pr_info("[TP]himax,hx83112a_nf: %s fw reload ok (ret=%d)\n", __func__, ret);
     }
     himax_sense_on(0x00);
 
-    //hx83112b_enable_interrupt(g_chip_info, true);
-    //esd hw reset
     return ret;
 }
 
@@ -6106,7 +6108,6 @@ static fw_update_state hx83112b_fw_update(void *chip_data, const struct firmware
     himax_sense_on(0x00);
     msleep (10);
 
-    enable_irq(chip_info->hx_irq);
  //   hx83112b_reset(chip_info);
  //   msleep(200);
     if(fw_name_fae != NULL) {
@@ -6262,6 +6263,7 @@ static int hx83112b_tp_probe(struct spi_device *spi)
         goto err_register_driver;
     }
     disable_irq_nosync(chip_info->hx_irq);
+    irq_en_cnt = 0;
     if (himax_ic_package_check() == false)
     {
         TPD_INFO("Himax chip doesn NOT EXIST");
@@ -6293,18 +6295,11 @@ static int hx83112b_tp_probe(struct spi_device *spi)
 
     //step7:create hx83112b related proc files
     himax_create_proc(ts, chip_info->syna_ops);
-    irq_en_cnt = 1;
     TPD_INFO("%s, probe normal end\n", __func__);
 
     if (ts->boot_mode == MSM_BOOT_MODE__RECOVERY)
-    {
-        enable_irq(chip_info->hx_irq);
         TPD_INFO("In Recovery mode, no-flash download fw by headfile\n");
-        queue_delayed_work(chip_info->himax_0f_update_wq, &chip_info->work_0f_update, msecs_to_jiffies(500));
-    } else {
-        //disable_irq_nosync(chip_info->hx_irq);
-    }
-	
+
     queue_delayed_work(chip_info->himax_0f_update_wq, &chip_info->work_0f_update, msecs_to_jiffies(500));
 
     return 0;
