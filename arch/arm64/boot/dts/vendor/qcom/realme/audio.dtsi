@@ -13,17 +13,6 @@
 /* diff with msm-audio.dtsi */
 &dai_mi2s0 {
     qcom,msm-mi2s-rx-lines = <1>;
-    pinctrl-names = "default", "sleep";
-
-    pinctrl-0 = <&pri_mi2s_active
-        &pri_mi2s_mclk_active
-        &pri_mi2s_ws_active
-        &pri_mi2s_sd0_active>;
-
-    pinctrl-1 = <&pri_mi2s_sleep
-        &pri_mi2s_mclk_sleep
-        &pri_mi2s_ws_sleep
-        &pri_mi2s_sd0_sleep>;
 };
 
 &dai_mi2s1 {
@@ -53,8 +42,13 @@
     status = "disabled";
 };
 
+&us_euro_gpio {
+    status = "disabled";
+};
+
 &int_codec {
     /delete-property/ status;
+    /delete-property/ qcom,us-euro-gpios;
     qcom,wsa-disable;
     qcom,msm-mi2s-master = <0>, <1>, <0>, <0>;
     qcom,msm-mi2s-ext-mclk = <1>,<0>,<0>,<0>;
