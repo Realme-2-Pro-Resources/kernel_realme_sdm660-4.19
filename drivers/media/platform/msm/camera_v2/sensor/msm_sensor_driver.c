@@ -170,18 +170,6 @@ static int32_t msm_sensor_driver_create_v4l_subdev
 	s_ctrl->msm_sd.sd.entity.function = MSM_CAMERA_SUBDEV_SENSOR;
 	s_ctrl->msm_sd.sd.entity.name = s_ctrl->msm_sd.sd.name;
 	s_ctrl->msm_sd.close_seq = MSM_SD_CLOSE_2ND_CATEGORY | 0x3;
-	#ifdef VENDOR_EDIT
-	//LiuBin@Camera, 2015/07/05, Add for AT test
-	if (s_ctrl->sensordata->sensor_info->position == 0) //back sensor
-	    s_ctrl->msm_sd.sd.entity.revision = 1;
-	else if (s_ctrl->sensordata->sensor_info->position == 1) //sub sensor
-	    s_ctrl->msm_sd.sd.entity.revision = 2;
-	/*oppo hufeng 20170216 add for back aux camera at test*/
-	else if (s_ctrl->sensordata->sensor_info->position == 2) //back aux sensor
-	    s_ctrl->msm_sd.sd.entity.revision = 3;
-	else
-	    s_ctrl->msm_sd.sd.entity.revision = 0;
-	#endif /* VENDOR_EDIT */
 	rc = msm_sd_register(&s_ctrl->msm_sd);
 	if (rc < 0) {
 		pr_err("failed: msm_sd_register rc %d\n", rc);
