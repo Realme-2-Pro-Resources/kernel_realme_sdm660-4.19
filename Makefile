@@ -301,6 +301,7 @@ else
 scripts/Kbuild.include: ;
 include scripts/Kbuild.include
 
+
 # Read KERNELRELEASE from include/config/kernel.release (if it exists)
 KERNELRELEASE = $(shell cat include/config/kernel.release 2> /dev/null)
 KERNELVERSION = $(VERSION)$(if $(PATCHLEVEL),.$(PATCHLEVEL)$(if $(SUBLEVEL),.$(SUBLEVEL)))$(EXTRAVERSION)
@@ -450,6 +451,11 @@ KBUILD_CFLAGS   := -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs \
 		   -Werror=return-type -Wno-format-security \
 		   -std=gnu89
 KBUILD_CPPFLAGS := -D__KERNEL__
+
+# OPPO/realme vendor code markers
+KBUILD_CPPFLAGS += -DVENDOR_EDIT=1 -DIS_PROJECT_18321=1
+OPPO_TARGET_DEVICE ?= MSM_18321
+export OPPO_TARGET_DEVICE
 KBUILD_AFLAGS_KERNEL :=
 KBUILD_CFLAGS_KERNEL :=
 KBUILD_AFLAGS_MODULE  := -DMODULE
