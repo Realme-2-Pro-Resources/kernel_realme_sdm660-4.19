@@ -37,7 +37,7 @@
 #include <linux/of_gpio.h>
 #include <linux/regulator/consumer.h>
 #include <linux/pinctrl/consumer.h>
-#include "../include/wakelock.h"
+#include <linux/wakelock.h>
 #include <soc/qcom/scm.h>
 #include "../include/oppo_fp_common.h"
 

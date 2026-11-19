@@ -35,14 +35,14 @@
 #elif CONFIG_OPPO_FINGERPRINT_PLATFORM == 855
 #include <linux/uaccess.h>
 #else
-#include <soc/qcom/smem.h>
+#include <soc/oppo/oppo_smem.h>
 #endif
 #include <soc/oppo/oppo_project.h>
 #include <linux/slab.h>
 #include <linux/seq_file.h>
 #include <linux/fs.h>
 #include <linux/of_gpio.h>
-#include <asm/uaccess.h>
+#include <linux/uaccess.h>
 #include <linux/delay.h>
 #include <linux/string.h>
 #include "../include/oppo_fp_common.h"

@@ -30,7 +30,6 @@
 #elif CONFIG_OPPO_BSP_SECCOM_PLATFORM == 855
 #include <linux/soc/qcom/smem.h>
 #else
-#include <soc/qcom/smem.h>
 #endif
 
 #include <linux/slab.h>
@@ -41,7 +40,7 @@
 #if CONFIG_OPPO_BSP_SECCOM_PLATFORM == 855
 #include <linux/uaccess.h>
 #else
-#include <asm/uaccess.h>
+#include <linux/uaccess.h>
 #endif
 
 #include <linux/delay.h>
