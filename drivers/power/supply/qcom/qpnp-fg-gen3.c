@@ -2920,7 +2920,10 @@ static void pl_enable_work(struct work_struct *work)
 				pl_enable_work.work);
 	struct fg_dev *fg = &chip->fg;
 
-	vote(chip->pl_disable_votable, ESR_FCC_VOTER, false, 0);
+	if (!chip->pl_disable_votable)
+		chip->pl_disable_votable = find_votable("PL_DISABLE");
+	if (chip->pl_disable_votable)
+		vote(chip->pl_disable_votable, ESR_FCC_VOTER, false, 0);
 	vote(fg->awake_votable, ESR_FCC_VOTER, false, 0);
 }
 
@@ -4611,7 +4614,10 @@ static irqreturn_t fg_batt_missing_irq_handler(int irq, void *data)
 		fg->soc_reporting_ready = false;
 		fg->batt_id_ohms = -EINVAL;
 		cancel_delayed_work_sync(&chip->pl_enable_work);
-		vote(chip->pl_disable_votable, ESR_FCC_VOTER, true, 0);
+		if (!chip->pl_disable_votable)
+			chip->pl_disable_votable = find_votable("PL_DISABLE");
+		if (chip->pl_disable_votable)
+			vote(chip->pl_disable_votable, ESR_FCC_VOTER, true, 0);
 		return IRQ_HANDLED;
 	}
 
@@ -5685,11 +5691,28 @@ static int fg_gen3_probe(struct platform_device *pdev)
 		}
 	}
 
+	mutex_init(&fg->bus_lock);
+	mutex_init(&fg->sram_rw_lock);
+	mutex_init(&fg->charge_full_lock);
+	mutex_init(&chip->cyc_ctr.lock);
+	mutex_init(&chip->cl.lock);
+	mutex_init(&chip->ttf.lock);
+	mutex_init(&fg->qnovo_esr_ctrl_lock);
+	spin_lock_init(&fg->suspend_lock);
+	spin_lock_init(&fg->awake_lock);
+	init_completion(&fg->soc_update);
+	init_completion(&fg->soc_ready);
+	INIT_DELAYED_WORK(&fg->profile_load_work, profile_load_work);
+	INIT_DELAYED_WORK(&chip->pl_enable_work, pl_enable_work);
+	INIT_WORK(&fg->status_change_work, status_change_work);
+	INIT_WORK(&fg->esr_sw_work, fg_esr_sw_work);
+	INIT_DELAYED_WORK(&chip->ttf_work, ttf_work);
+	INIT_DELAYED_WORK(&fg->sram_dump_work, sram_dump_work);
+	INIT_WORK(&fg->esr_filter_work, esr_filter_work);
+	alarm_init(&fg->esr_filter_alarm, ALARM_BOOTTIME,
+			fg_esr_filter_alarm_cb);
+
 	chip->pl_disable_votable = find_votable("PL_DISABLE");
-	if (chip->pl_disable_votable == NULL) {
-		rc = -EPROBE_DEFER;
-		goto exit;
-	}
 
 	fg->awake_votable = create_votable("FG_WS", VOTE_SET_ANY, fg_awake_cb,
 					chip);
@@ -5723,27 +5746,6 @@ static int fg_gen3_probe(struct platform_device *pdev)
 			rc);
 		goto exit;
 	}
-
-	mutex_init(&fg->bus_lock);
-	mutex_init(&fg->sram_rw_lock);
-	mutex_init(&fg->charge_full_lock);
-	mutex_init(&chip->cyc_ctr.lock);
-	mutex_init(&chip->cl.lock);
-	mutex_init(&chip->ttf.lock);
-	mutex_init(&fg->qnovo_esr_ctrl_lock);
-	spin_lock_init(&fg->suspend_lock);
-	spin_lock_init(&fg->awake_lock);
-	init_completion(&fg->soc_update);
-	init_completion(&fg->soc_ready);
-	INIT_DELAYED_WORK(&fg->profile_load_work, profile_load_work);
-	INIT_DELAYED_WORK(&chip->pl_enable_work, pl_enable_work);
-	INIT_WORK(&fg->status_change_work, status_change_work);
-	INIT_WORK(&fg->esr_sw_work, fg_esr_sw_work);
-	INIT_DELAYED_WORK(&chip->ttf_work, ttf_work);
-	INIT_DELAYED_WORK(&fg->sram_dump_work, sram_dump_work);
-	INIT_WORK(&fg->esr_filter_work, esr_filter_work);
-	alarm_init(&fg->esr_filter_alarm, ALARM_BOOTTIME,
-			fg_esr_filter_alarm_cb);
 
 	fg_create_debugfs(fg);
 
