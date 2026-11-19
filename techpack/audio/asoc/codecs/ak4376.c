@@ -181,21 +181,21 @@ static const u8 ak4376_reg_default[AK4376_MAX_REGISTERS] = {
     0x07,    /*    0x2A    AK4376_2A_DAC_ADJUSTMENT_2        */
 };
 
-unsigned int ak4376_reg_read(struct snd_soc_codec *, unsigned int);
-static int ak4376_write_register(struct snd_soc_codec *, unsigned int, unsigned int);
+unsigned int ak4376_reg_read(struct snd_soc_component *, unsigned int);
+static int ak4376_write_register(struct snd_soc_component *, unsigned int, unsigned int);
 #ifdef CONFIG_DEBUG_FS_CODEC
-static struct snd_soc_codec *ak4376_codec;
-static int ak4376_reg_write(struct snd_soc_codec *, u16, u16);
+static struct snd_soc_component *ak4376_codec;
+static int ak4376_reg_write(struct snd_soc_component *, u16, u16);
 #endif
 
-static inline void ak4376_update_register(struct snd_soc_codec *codec)
+static inline void ak4376_update_register(struct snd_soc_component *codec)
 {
     u8 cur_register;
 #ifdef AK4376_CONTIF_DEBUG
     int ret = 0;
     unsigned int cur_cache;
     unsigned int i;
-    struct ak4376_priv *ak4376 = snd_soc_codec_get_drvdata(codec);
+    struct ak4376_priv *ak4376 = snd_soc_component_get_drvdata(codec);
 #else
     u8 cur_cache;
     int i;
@@ -214,7 +214,7 @@ static inline void ak4376_update_register(struct snd_soc_codec *codec)
         akdbgprt("\t[AK4376] %s Read AK4376_26_DAC_ADJUSTMENT_1 cache error\n",__FUNCTION__);
     }
 #else
-    cur_cache = snd_soc_read(codec, AK4376_26_DAC_ADJUSTMENT_1);
+    cur_cache = snd_soc_component_read32(codec, AK4376_26_DAC_ADJUSTMENT_1);
 #endif
     if (cur_register != cur_cache)
         ak4376_write_register(codec, AK4376_26_DAC_ADJUSTMENT_1, cur_cache);
@@ -231,7 +231,7 @@ static inline void ak4376_update_register(struct snd_soc_codec *codec)
         akdbgprt("\t[AK4376] %s Read AK4376_2A_DAC_ADJUSTMENT_2 cache error\n",__FUNCTION__);
     }
 #else
-    cur_cache = snd_soc_read(codec, AK4376_2A_DAC_ADJUSTMENT_2);
+    cur_cache = snd_soc_component_read32(codec, AK4376_2A_DAC_ADJUSTMENT_2);
 #endif
     if (cur_register != cur_cache)
         ak4376_write_register(codec, AK4376_2A_DAC_ADJUSTMENT_2, cur_cache);
@@ -249,7 +249,7 @@ static inline void ak4376_update_register(struct snd_soc_codec *codec)
             akdbgprt("\t[AK4376] %s Read cache error\n",__FUNCTION__);
         }
 #else
-        cur_cache = snd_soc_read(codec, i);
+        cur_cache = snd_soc_component_read32(codec, i);
 #endif
 
         akdbgprt("\t[AK4376] %s(%d) reg:0x%x (I2C, cache)=(0x%x,0x%x)\n", __FUNCTION__,__LINE__,i,cur_register,cur_cache);
@@ -272,7 +272,7 @@ static inline void ak4376_update_register(struct snd_soc_codec *codec)
         akdbgprt("\t[AK4376] %s Read cache error\n",__FUNCTION__);
     }
 #else
-    cur_cache = snd_soc_read(codec, AK4376_24_MODE_CONTROL);
+    cur_cache = snd_soc_component_read32(codec, AK4376_24_MODE_CONTROL);
 #endif
 
     akdbgprt("\t[AK4376] %s(%d) (reg:0x24)cur_register=%x, cur_cache=%x\n", __FUNCTION__,__LINE__,cur_register,cur_cache);
@@ -282,9 +282,9 @@ static inline void ak4376_update_register(struct snd_soc_codec *codec)
 }
 
 /* GPIO control for PDN */
-static int ak4376_pdn_control(struct snd_soc_codec *codec, int pdn)
+static int ak4376_pdn_control(struct snd_soc_component *codec, int pdn)
 {
-    struct ak4376_priv *ak4376 = snd_soc_codec_get_drvdata(codec);
+    struct ak4376_priv *ak4376 = snd_soc_component_get_drvdata(codec);
 
     akdbgprt("\t[AK4376] %s(%d) pdn=%d\n",__FUNCTION__,__LINE__,pdn);
 
@@ -305,7 +305,7 @@ static int ak4376_pdn_control(struct snd_soc_codec *codec, int pdn)
         ak4376->pdn1 = 0;
         ak4376->pdn2 = 0;
 
-        snd_soc_cache_init(codec);
+        regcache_mark_dirty(ak4376->regmap);
     }
 
     return 0;
@@ -462,8 +462,8 @@ static int get_bickfs(
 struct snd_kcontrol       *kcontrol,
 struct snd_ctl_elem_value  *ucontrol)
 {
-    struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);//snd_soc_kcontrol_codec
-    struct ak4376_priv *ak4376 = snd_soc_codec_get_drvdata(codec);
+    struct snd_soc_component *codec = snd_soc_kcontrol_component(kcontrol);//snd_soc_kcontrol_component
+    struct ak4376_priv *ak4376 = snd_soc_component_get_drvdata(codec);
 
     akdbgprt("\t[AK4376] %s(%d)\n",__FUNCTION__,__LINE__);
 
@@ -472,20 +472,20 @@ struct snd_ctl_elem_value  *ucontrol)
     return 0;
 }
 
-static int ak4376_set_bickfs(struct snd_soc_codec *codec)
+static int ak4376_set_bickfs(struct snd_soc_component *codec)
 {
-    struct ak4376_priv *ak4376 = snd_soc_codec_get_drvdata(codec);
+    struct ak4376_priv *ak4376 = snd_soc_component_get_drvdata(codec);
 
     akdbgprt("\t[AK4376] %s(%d) nBickFreq=%d\n",__FUNCTION__,__LINE__,ak4376->nBickFreq);
 
     if ( ak4376->nBickFreq == 0 ) {     //32fs
-        snd_soc_update_bits(codec, AK4376_15_AUDIO_IF_FORMAT, 0x03, 0x01);    //DL1-0=01(16bit, >=32fs)
+        snd_soc_component_update_bits(codec, AK4376_15_AUDIO_IF_FORMAT, 0x03, 0x01);    //DL1-0=01(16bit, >=32fs)
     }
     else if( ak4376->nBickFreq == 1 ) {    //48fs
-        snd_soc_update_bits(codec, AK4376_15_AUDIO_IF_FORMAT, 0x03, 0x00);    //DL1-0=00(24bit, >=48fs)
+        snd_soc_component_update_bits(codec, AK4376_15_AUDIO_IF_FORMAT, 0x03, 0x00);    //DL1-0=00(24bit, >=48fs)
     }
     else {                                //64fs
-        snd_soc_update_bits(codec, AK4376_15_AUDIO_IF_FORMAT, 0x03, 0x02);    //DL1-0=1x(32bit, >=64fs)
+        snd_soc_component_update_bits(codec, AK4376_15_AUDIO_IF_FORMAT, 0x03, 0x02);    //DL1-0=1x(32bit, >=64fs)
     }
 
     return 0;
@@ -495,8 +495,8 @@ static int set_bickfs(
 struct snd_kcontrol       *kcontrol,
 struct snd_ctl_elem_value  *ucontrol)
 {
-    struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
-    struct ak4376_priv *ak4376 = snd_soc_codec_get_drvdata(codec);
+    struct snd_soc_component *codec = snd_soc_kcontrol_component(kcontrol);
+    struct ak4376_priv *ak4376 = snd_soc_component_get_drvdata(codec);
 
     akdbgprt("\t[AK4376] %s(%d)\n",__FUNCTION__,__LINE__);
 
@@ -511,8 +511,8 @@ static int get_pllmcki(
 struct snd_kcontrol       *kcontrol,
 struct snd_ctl_elem_value  *ucontrol)
 {
-    struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
-    struct ak4376_priv *ak4376 = snd_soc_codec_get_drvdata(codec);
+    struct snd_soc_component *codec = snd_soc_kcontrol_component(kcontrol);
+    struct ak4376_priv *ak4376 = snd_soc_component_get_drvdata(codec);
 
     ucontrol->value.enumerated.item[0] = ak4376->nPllMCKI;
 
@@ -523,8 +523,8 @@ static int set_pllmcki(
 struct snd_kcontrol       *kcontrol,
 struct snd_ctl_elem_value  *ucontrol)
 {
-    struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
-    struct ak4376_priv *ak4376 = snd_soc_codec_get_drvdata(codec);
+    struct snd_soc_component *codec = snd_soc_kcontrol_component(kcontrol);
+    struct ak4376_priv *ak4376 = snd_soc_component_get_drvdata(codec);
 
     ak4376->nPllMCKI = ucontrol->value.enumerated.item[0];
 
@@ -535,30 +535,30 @@ static int get_lpmode(
 struct snd_kcontrol       *kcontrol,
 struct snd_ctl_elem_value  *ucontrol)
 {
-    struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
-    struct ak4376_priv *ak4376 = snd_soc_codec_get_drvdata(codec);
+    struct snd_soc_component *codec = snd_soc_kcontrol_component(kcontrol);
+    struct ak4376_priv *ak4376 = snd_soc_component_get_drvdata(codec);
 
     ucontrol->value.enumerated.item[0] = ak4376->lpmode;
 
     return 0;
 }
 
-static int ak4376_set_lpmode(struct snd_soc_codec *codec)
+static int ak4376_set_lpmode(struct snd_soc_component *codec)
 {
-    struct ak4376_priv *ak4376 = snd_soc_codec_get_drvdata(codec);
+    struct ak4376_priv *ak4376 = snd_soc_component_get_drvdata(codec);
 
     if ( ak4376->lpmode == 0 ) {     //High Performance Mode
-        snd_soc_update_bits(codec, AK4376_02_POWER_MANAGEMENT3, 0x10, 0x00);    //LPMODE=0(High Performance Mode)
+        snd_soc_component_update_bits(codec, AK4376_02_POWER_MANAGEMENT3, 0x10, 0x00);    //LPMODE=0(High Performance Mode)
             if ( ak4376->fs1 <= 12000 ) {
-                snd_soc_update_bits(codec, AK4376_24_MODE_CONTROL, 0x40, 0x40);    //DSMLP=1
+                snd_soc_component_update_bits(codec, AK4376_24_MODE_CONTROL, 0x40, 0x40);    //DSMLP=1
             }
             else {
-                snd_soc_update_bits(codec, AK4376_24_MODE_CONTROL, 0x40, 0x00);    //DSMLP=0
+                snd_soc_component_update_bits(codec, AK4376_24_MODE_CONTROL, 0x40, 0x00);    //DSMLP=0
             }
     }
     else {                            //Low Power Mode
-        snd_soc_update_bits(codec, AK4376_02_POWER_MANAGEMENT3, 0x10, 0x10);    //LPMODE=1(Low Power Mode)
-        snd_soc_update_bits(codec, AK4376_24_MODE_CONTROL, 0x40, 0x40);            //DSMLP=1
+        snd_soc_component_update_bits(codec, AK4376_02_POWER_MANAGEMENT3, 0x10, 0x10);    //LPMODE=1(Low Power Mode)
+        snd_soc_component_update_bits(codec, AK4376_24_MODE_CONTROL, 0x40, 0x40);            //DSMLP=1
     }
 
     return 0;
@@ -568,8 +568,8 @@ static int set_lpmode(
 struct snd_kcontrol       *kcontrol,
 struct snd_ctl_elem_value  *ucontrol)
 {
-    struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
-    struct ak4376_priv *ak4376 = snd_soc_codec_get_drvdata(codec);
+    struct snd_soc_component *codec = snd_soc_kcontrol_component(kcontrol);
+    struct ak4376_priv *ak4376 = snd_soc_component_get_drvdata(codec);
 
     ak4376->lpmode = ucontrol->value.enumerated.item[0];
 
@@ -582,8 +582,8 @@ static int get_xtalfreq(
 struct snd_kcontrol       *kcontrol,
 struct snd_ctl_elem_value  *ucontrol)
 {
-    struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
-    struct ak4376_priv *ak4376 = snd_soc_codec_get_drvdata(codec);
+    struct snd_soc_component *codec = snd_soc_kcontrol_component(kcontrol);
+    struct ak4376_priv *ak4376 = snd_soc_component_get_drvdata(codec);
 
     ucontrol->value.enumerated.item[0] = ak4376->xtalfreq;
 
@@ -594,8 +594,8 @@ static int set_xtalfreq(
 struct snd_kcontrol       *kcontrol,
 struct snd_ctl_elem_value  *ucontrol)
 {
-    struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
-    struct ak4376_priv *ak4376 = snd_soc_codec_get_drvdata(codec);
+    struct snd_soc_component *codec = snd_soc_kcontrol_component(kcontrol);
+    struct ak4376_priv *ak4376 = snd_soc_component_get_drvdata(codec);
 
     ak4376->xtalfreq = ucontrol->value.enumerated.item[0];
 
@@ -606,8 +606,8 @@ static int get_pdn(
 struct snd_kcontrol       *kcontrol,
 struct snd_ctl_elem_value  *ucontrol)
 {
-    struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
-    struct ak4376_priv *ak4376 = snd_soc_codec_get_drvdata(codec);
+    struct snd_soc_component *codec = snd_soc_kcontrol_component(kcontrol);
+    struct ak4376_priv *ak4376 = snd_soc_component_get_drvdata(codec);
 
     akdbgprt("\t[AK4376] %s(%d)\n",__FUNCTION__,__LINE__);
 
@@ -620,8 +620,8 @@ static int set_pdn(
 struct snd_kcontrol       *kcontrol,
 struct snd_ctl_elem_value  *ucontrol)
 {
-    struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
-    struct ak4376_priv *ak4376 = snd_soc_codec_get_drvdata(codec);
+    struct snd_soc_component *codec = snd_soc_kcontrol_component(kcontrol);
+    struct ak4376_priv *ak4376 = snd_soc_component_get_drvdata(codec);
 
     ak4376->pdn2 = ucontrol->value.enumerated.item[0];
 
@@ -639,8 +639,8 @@ static const struct soc_enum ftm_hp_rev_enum  = SOC_ENUM_SINGLE_EXT(2, ftm_hp_re
 static int ftm_hp_rev_get(struct snd_kcontrol *kcontrol,
     struct snd_ctl_elem_value *ucontrol)
 {
-    struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
-    struct ak4376_priv *ak4376 = snd_soc_codec_get_drvdata(codec);
+    struct snd_soc_component *codec = snd_soc_kcontrol_component(kcontrol);
+    struct ak4376_priv *ak4376 = snd_soc_component_get_drvdata(codec);
     int rev = 0;
     int ret;
     int retries = 50;
@@ -710,7 +710,7 @@ static int set_test_reg(
 struct snd_kcontrol       *kcontrol,
 struct snd_ctl_elem_value  *ucontrol)
 {
-    struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
+    struct snd_soc_component *codec = snd_soc_kcontrol_component(kcontrol);
     u32    currMode = ucontrol->value.enumerated.item[0];
     int    i, value;
     int       regs, rege;
@@ -721,10 +721,10 @@ struct snd_ctl_elem_value  *ucontrol)
     rege = 0x15;
 
     for ( i = regs ; i <= rege ; i++ ){
-        value = snd_soc_read(codec, i);
+        value = snd_soc_component_read32(codec, i);
         printk("***AK4376 Addr,Reg=(%x, %x)\n", i, value);
     }
-    value = snd_soc_read(codec, 0x24);
+    value = snd_soc_component_read32(codec, 0x24);
     printk("***AK4376 Addr,Reg=(%x, %x)\n", 0x24, value);
 
     return 0;
@@ -772,37 +772,37 @@ static const struct snd_kcontrol_new ak4376_snd_controls[] = {
 
 
 /* DAC control */
-static int ak4376_dac_event2(struct snd_soc_codec *codec, int event)
+static int ak4376_dac_event2(struct snd_soc_component *codec, int event)
 {
     u8 MSmode;
-    struct ak4376_priv *ak4376 = snd_soc_codec_get_drvdata(codec);
+    struct ak4376_priv *ak4376 = snd_soc_component_get_drvdata(codec);
 
-    MSmode = snd_soc_read(codec, AK4376_15_AUDIO_IF_FORMAT);
+    MSmode = snd_soc_component_read32(codec, AK4376_15_AUDIO_IF_FORMAT);
 	pr_info("ak4376_dac_event2 event = %d\n",event);
     switch (event) {
     case SND_SOC_DAPM_PRE_PMU:    /* before widget power up */
         ak4376->nDACOn = 1;
-        snd_soc_update_bits(codec, AK4376_01_POWER_MANAGEMENT2, 0x01,0x01);        //PMCP1=1
+        snd_soc_component_update_bits(codec, AK4376_01_POWER_MANAGEMENT2, 0x01,0x01);        //PMCP1=1
         mdelay(6);                                                                //wait 6ms
         udelay(500);                                                            //wait 0.5ms
-        snd_soc_update_bits(codec, AK4376_01_POWER_MANAGEMENT2, 0x30,0x30);        //PMLDO1P/N=1
+        snd_soc_component_update_bits(codec, AK4376_01_POWER_MANAGEMENT2, 0x30,0x30);        //PMLDO1P/N=1
         mdelay(1);                                                                //wait 1ms
         break;
     case SND_SOC_DAPM_POST_PMU:    /* after widget power up */
-        snd_soc_update_bits(codec, AK4376_01_POWER_MANAGEMENT2, 0x02,0x02);        //PMCP2=1
+        snd_soc_component_update_bits(codec, AK4376_01_POWER_MANAGEMENT2, 0x02,0x02);        //PMCP2=1
         mdelay(4);                                                                //wait 4ms
         udelay(500);                                                            //wait 0.5ms
         break;
     case SND_SOC_DAPM_PRE_PMD:    /* before widget power down */
-        snd_soc_update_bits(codec, AK4376_01_POWER_MANAGEMENT2, 0x02,0x00);        //PMCP2=0
+        snd_soc_component_update_bits(codec, AK4376_01_POWER_MANAGEMENT2, 0x02,0x00);        //PMCP2=0
         break;
     case SND_SOC_DAPM_POST_PMD:    /* after widget power down */
-        snd_soc_update_bits(codec, AK4376_01_POWER_MANAGEMENT2, 0x30,0x00);        //PMLDO1P/N=0
-        snd_soc_update_bits(codec, AK4376_01_POWER_MANAGEMENT2, 0x01,0x00);        //PMCP1=0
+        snd_soc_component_update_bits(codec, AK4376_01_POWER_MANAGEMENT2, 0x30,0x00);        //PMLDO1P/N=0
+        snd_soc_component_update_bits(codec, AK4376_01_POWER_MANAGEMENT2, 0x01,0x00);        //PMCP1=0
 
     if (ak4376->nPllMode == 0) {
         if (MSmode & 0x10) {    //Master mode
-            snd_soc_update_bits(codec, AK4376_15_AUDIO_IF_FORMAT, 0x10,0x00);    //MS bit = 0
+            snd_soc_component_update_bits(codec, AK4376_15_AUDIO_IF_FORMAT, 0x10,0x00);    //MS bit = 0
         }
     }
 
@@ -817,9 +817,9 @@ static int ak4376_dac_event(struct snd_soc_dapm_widget *w,
         struct snd_kcontrol *kcontrol, int event) //CONFIG_LINF
 {
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4,4,0)
-	struct snd_soc_codec *codec = w->codec;
+	struct snd_soc_component *codec = w->component;
 #else
-	struct snd_soc_codec *codec = snd_soc_dapm_to_codec(w->dapm);
+	struct snd_soc_component *codec = snd_soc_dapm_to_component(w->dapm);
 #endif
 
 	akdbgprt("\t[AK4376] %s(%d)\n",__FUNCTION__,__LINE__);
@@ -830,27 +830,27 @@ static int ak4376_dac_event(struct snd_soc_dapm_widget *w,
 }
 
 /* PLL control */
-static int ak4376_pll_event2(struct snd_soc_codec *codec, int event)
+static int ak4376_pll_event2(struct snd_soc_component *codec, int event)
 {
-    struct ak4376_priv *ak4376 = snd_soc_codec_get_drvdata(codec);
+    struct ak4376_priv *ak4376 = snd_soc_component_get_drvdata(codec);
 	pr_info("ak4376_pll_event2 event = %d\n",event);
     switch (event) {
     case SND_SOC_DAPM_PRE_PMU:    /* before widget power up */
     case SND_SOC_DAPM_POST_PMU:    /* after widget power up */
         if ((ak4376->nPllMode == 1) || (ak4376->nPllMode == 2)) {
-        snd_soc_update_bits(codec, AK4376_00_POWER_MANAGEMENT1, 0x01,0x01);    //PMPLL=1
+        snd_soc_component_update_bits(codec, AK4376_00_POWER_MANAGEMENT1, 0x01,0x01);    //PMPLL=1
         }
         else if (ak4376->nPllMode == 3) {
-        snd_soc_update_bits(codec, AK4376_00_POWER_MANAGEMENT1, 0x10,0x10);    //PMOSC=1
+        snd_soc_component_update_bits(codec, AK4376_00_POWER_MANAGEMENT1, 0x10,0x10);    //PMOSC=1
         }
         break;
     case SND_SOC_DAPM_PRE_PMD:    /* before widget power down */
     case SND_SOC_DAPM_POST_PMD:    /* after widget power down */
         if ((ak4376->nPllMode == 1) || (ak4376->nPllMode == 2)) {
-        snd_soc_update_bits(codec, AK4376_00_POWER_MANAGEMENT1, 0x01,0x00);    //PMPLL=0
+        snd_soc_component_update_bits(codec, AK4376_00_POWER_MANAGEMENT1, 0x01,0x00);    //PMPLL=0
         }
         else if (ak4376->nPllMode == 3) {
-        snd_soc_update_bits(codec, AK4376_00_POWER_MANAGEMENT1, 0x10,0x00);    //PMOSC=0
+        snd_soc_component_update_bits(codec, AK4376_00_POWER_MANAGEMENT1, 0x10,0x00);    //PMOSC=0
         }
         break;
     }
@@ -862,9 +862,9 @@ static int ak4376_pll_event(struct snd_soc_dapm_widget *w,
         struct snd_kcontrol *kcontrol, int event) //CONFIG_LINF
 {
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4,4,0)
-	struct snd_soc_codec *codec = w->codec;
+	struct snd_soc_component *codec = w->component;
 #else
-	struct snd_soc_codec *codec = snd_soc_dapm_to_codec(w->dapm);
+	struct snd_soc_component *codec = snd_soc_dapm_to_component(w->dapm);
 #endif
 
     akdbgprt("\t[AK4376] %s(%d)\n",__FUNCTION__,__LINE__);
@@ -929,12 +929,12 @@ static const struct snd_soc_dapm_route ak4376_intercon[] =
 
 };
 
-static int ak4376_set_mcki(struct snd_soc_codec *codec, int fs, int rclk)
+static int ak4376_set_mcki(struct snd_soc_component *codec, int fs, int rclk)
 {
     u8 mode;
     u8 mode2;
     int mcki_rate;
-    struct ak4376_priv *ak4376 = snd_soc_codec_get_drvdata(codec);
+    struct ak4376_priv *ak4376 = snd_soc_component_get_drvdata(codec);
 
     akdbgprt("\t[AK4376] %s fs=%d rclk=%d\n",__FUNCTION__, fs, rclk);
 
@@ -953,7 +953,7 @@ static int ak4376_set_mcki(struct snd_soc_codec *codec, int fs, int rclk)
             }
         }
 
-        mode = snd_soc_read(codec, AK4376_05_CLOCK_MODE_SELECT);
+        mode = snd_soc_component_read32(codec, AK4376_05_CLOCK_MODE_SELECT);
         mode &= ~AK4376_CM;
 
         if (ak4376->lpmode == 0) {                //High Performance Mode
@@ -969,14 +969,14 @@ static int ak4376_set_mcki(struct snd_soc_codec *codec, int fs, int rclk)
                 break;
             case 256:
                 mode |= AK4376_CM_0;
-                mode2 = snd_soc_read(codec, AK4376_24_MODE_CONTROL);
+                mode2 = snd_soc_component_read32(codec, AK4376_24_MODE_CONTROL);
                 if ( fs <= 12000 ) {
                     mode2 |= 0x40;    //DSMLP=1
-                    snd_soc_write(codec, AK4376_24_MODE_CONTROL, mode2);
+                    snd_soc_component_write(codec, AK4376_24_MODE_CONTROL, mode2);
                 }
                 else {
                     mode2 &= ~0x40;    //DSMLP=0
-                    snd_soc_write(codec, AK4376_24_MODE_CONTROL, mode2);
+                    snd_soc_component_write(codec, AK4376_24_MODE_CONTROL, mode2);
                 }
                 break;
             case 512:
@@ -1014,23 +1014,23 @@ static int ak4376_set_mcki(struct snd_soc_codec *codec, int fs, int rclk)
             }
         }
 
-        snd_soc_write(codec, AK4376_05_CLOCK_MODE_SELECT, mode);
+        snd_soc_component_write(codec, AK4376_05_CLOCK_MODE_SELECT, mode);
     }
 
     return 0;
 }
 
-static int ak4376_set_pllblock(struct snd_soc_codec *codec, int fs)
+static int ak4376_set_pllblock(struct snd_soc_component *codec, int fs)
 {
     u8 mode;
     int nMClk, nPLLClk, nRefClk;
     int PLDbit, PLMbit, MDIVbit;
     int PLLMCKI;
-    struct ak4376_priv *ak4376 = snd_soc_codec_get_drvdata(codec);
+    struct ak4376_priv *ak4376 = snd_soc_component_get_drvdata(codec);
 
     akdbgprt("\t[AK4376] %s(%d)\n",__FUNCTION__,__LINE__);
 
-    mode = snd_soc_read(codec, AK4376_05_CLOCK_MODE_SELECT);
+    mode = snd_soc_component_read32(codec, AK4376_05_CLOCK_MODE_SELECT);
     mode &= ~AK4376_CM;
 
         if ( fs <= 24000 ) {
@@ -1050,7 +1050,7 @@ static int ak4376_set_pllblock(struct snd_soc_codec *codec, int fs)
             nMClk = 64 * fs;
         }
 
-    snd_soc_write(codec, AK4376_05_CLOCK_MODE_SELECT, mode);
+    snd_soc_component_write(codec, AK4376_05_CLOCK_MODE_SELECT, mode);
 
     if ( (fs % 8000) == 0 ) {
         nPLLClk = 122880000;
@@ -1116,31 +1116,31 @@ static int ak4376_set_pllblock(struct snd_soc_codec *codec, int fs)
     MDIVbit--;
 
     //PLD15-0
-    snd_soc_write(codec, AK4376_0F_PLL_REF_CLK_DIVIDER1, ((PLDbit & 0xFF00) >> 8));
-    snd_soc_write(codec, AK4376_10_PLL_REF_CLK_DIVIDER2, ((PLDbit & 0x00FF) >> 0));
+    snd_soc_component_write(codec, AK4376_0F_PLL_REF_CLK_DIVIDER1, ((PLDbit & 0xFF00) >> 8));
+    snd_soc_component_write(codec, AK4376_10_PLL_REF_CLK_DIVIDER2, ((PLDbit & 0x00FF) >> 0));
     //PLM15-0
-    snd_soc_write(codec, AK4376_11_PLL_FB_CLK_DIVIDER1, ((PLMbit & 0xFF00) >> 8));
-    snd_soc_write(codec, AK4376_12_PLL_FB_CLK_DIVIDER2, ((PLMbit & 0x00FF) >> 0));
+    snd_soc_component_write(codec, AK4376_11_PLL_FB_CLK_DIVIDER1, ((PLMbit & 0xFF00) >> 8));
+    snd_soc_component_write(codec, AK4376_12_PLL_FB_CLK_DIVIDER2, ((PLMbit & 0x00FF) >> 0));
 
     if (ak4376->nPllMode == 1 ) {    //BICK_PLL (Slave)
-        snd_soc_update_bits(codec, AK4376_0E_PLL_CLK_SOURCE_SELECT, 0x03, 0x01);    //PLS=1(BICK)
+        snd_soc_component_update_bits(codec, AK4376_0E_PLL_CLK_SOURCE_SELECT, 0x03, 0x01);    //PLS=1(BICK)
     }
     else {                                        //MCKI PLL (Slave/Master)
-        snd_soc_update_bits(codec, AK4376_0E_PLL_CLK_SOURCE_SELECT, 0x03, 0x00);    //PLS=0(MCKI)
+        snd_soc_component_update_bits(codec, AK4376_0E_PLL_CLK_SOURCE_SELECT, 0x03, 0x00);    //PLS=0(MCKI)
     }
 
     //MDIV7-0
-    snd_soc_write(codec, AK4376_14_DAC_CLK_DIVIDER, MDIVbit);
+    snd_soc_component_write(codec, AK4376_14_DAC_CLK_DIVIDER, MDIVbit);
 
     return 0;
 }
 
-static int ak4376_set_timer(struct snd_soc_codec *codec)
+static int ak4376_set_timer(struct snd_soc_component *codec)
 {
     int ret, curdata;
     int count, tm, nfs;
     int lvdtm, vddtm, hptm;
-    struct ak4376_priv *ak4376 = snd_soc_codec_get_drvdata(codec);
+    struct ak4376_priv *ak4376 = snd_soc_component_get_drvdata(codec);
 
     lvdtm = 0;
     vddtm = 0;
@@ -1149,7 +1149,7 @@ static int ak4376_set_timer(struct snd_soc_codec *codec)
     nfs = ak4376->fs1;
 
     //LVDTM2-0 bits set
-    ret = snd_soc_read(codec, AK4376_03_POWER_MANAGEMENT4);
+    ret = snd_soc_component_read32(codec, AK4376_03_POWER_MANAGEMENT4);
     curdata = (ret & 0x70) >> 4;    //Current data Save
     ret &= ~0x70;
     do {
@@ -1159,11 +1159,11 @@ static int ak4376_set_timer(struct snd_soc_codec *codec)
        lvdtm++;
     } while ( lvdtm < 7 );            //LVDTM2-0 = 0~7
     if ( curdata != lvdtm) {
-            snd_soc_write(codec, AK4376_03_POWER_MANAGEMENT4, (ret | (lvdtm << 4)));
+            snd_soc_component_write(codec, AK4376_03_POWER_MANAGEMENT4, (ret | (lvdtm << 4)));
     }
 
     //VDDTM3-0 bits set
-    ret = snd_soc_read(codec, AK4376_04_OUTPUT_MODE_SETTING);
+    ret = snd_soc_component_read32(codec, AK4376_04_OUTPUT_MODE_SETTING);
     curdata = (ret & 0x3C) >> 2;    //Current data Save
     ret &= ~0x3C;
     do {
@@ -1173,20 +1173,20 @@ static int ak4376_set_timer(struct snd_soc_codec *codec)
        vddtm++;
     } while ( vddtm < 8 );            //VDDTM3-0 = 0~8
     if ( curdata != vddtm) {
-            snd_soc_write(codec, AK4376_04_OUTPUT_MODE_SETTING, (ret | (vddtm<<2)));
+            snd_soc_component_write(codec, AK4376_04_OUTPUT_MODE_SETTING, (ret | (vddtm<<2)));
     }
 
     return 0;
 }
 
-static int ak4376_hw_params_set(struct snd_soc_codec *codec, int nfs1)
+static int ak4376_hw_params_set(struct snd_soc_component *codec, int nfs1)
 {
     u8 fs;
-    struct ak4376_priv *ak4376 = snd_soc_codec_get_drvdata(codec);
+    struct ak4376_priv *ak4376 = snd_soc_component_get_drvdata(codec);
 
     akdbgprt("\t[AK4376] %s(%d)\n",__FUNCTION__,__LINE__);
 
-    fs = snd_soc_read(codec, AK4376_05_CLOCK_MODE_SELECT);
+    fs = snd_soc_component_read32(codec, AK4376_05_CLOCK_MODE_SELECT);
     fs &= ~AK4376_FS;
 
     switch (nfs1) {
@@ -1232,18 +1232,18 @@ static int ak4376_hw_params_set(struct snd_soc_codec *codec, int nfs1)
     default:
         return -EINVAL;
     }
-    snd_soc_write(codec, AK4376_05_CLOCK_MODE_SELECT, fs);
+    snd_soc_component_write(codec, AK4376_05_CLOCK_MODE_SELECT, fs);
 
     if ( ak4376->nPllMode == 0 ) {        //PLL Off
-        snd_soc_update_bits(codec, AK4376_13_DAC_CLK_SOURCE, 0x03, 0x00);    //DACCKS=0
+        snd_soc_component_update_bits(codec, AK4376_13_DAC_CLK_SOURCE, 0x03, 0x00);    //DACCKS=0
         ak4376_set_mcki(codec, nfs1, ak4376->rclk);
     }
     else if ( ak4376->nPllMode == 3 ) {    //XTAL MODE
-        snd_soc_update_bits(codec, AK4376_13_DAC_CLK_SOURCE, 0x03, 0x02);    //DACCKS=2
+        snd_soc_component_update_bits(codec, AK4376_13_DAC_CLK_SOURCE, 0x03, 0x02);    //DACCKS=2
         ak4376_set_mcki(codec, nfs1, ak4376->rclk);
     }
     else {                                            //PLL mode
-        snd_soc_update_bits(codec, AK4376_13_DAC_CLK_SOURCE, 0x03, 0x01);    //DACCKS=1
+        snd_soc_component_update_bits(codec, AK4376_13_DAC_CLK_SOURCE, 0x03, 0x01);    //DACCKS=1
         ak4376_set_pllblock(codec, nfs1);
     }
 
@@ -1256,8 +1256,8 @@ static int ak4376_hw_params(struct snd_pcm_substream *substream,
         struct snd_pcm_hw_params *params,
         struct snd_soc_dai *dai)
 {
-    struct snd_soc_codec *codec = dai->codec;
-    struct ak4376_priv *ak4376 = snd_soc_codec_get_drvdata(codec);
+    struct snd_soc_component *codec = dai->component;
+    struct ak4376_priv *ak4376 = snd_soc_component_get_drvdata(codec);
 
     ak4376->fs1 = params_rate(params);
 
@@ -1270,8 +1270,8 @@ static int ak4376_hw_params(struct snd_pcm_substream *substream,
 static int ak4376_set_dai_sysclk(struct snd_soc_dai *dai, int clk_id,
         unsigned int freq, int dir)
 {
-    struct snd_soc_codec *codec = dai->codec;
-    struct ak4376_priv *ak4376 = snd_soc_codec_get_drvdata(codec);
+    struct snd_soc_component *codec = dai->component;
+    struct ak4376_priv *ak4376 = snd_soc_component_get_drvdata(codec);
 
     akdbgprt("\t[AK4376] %s freq=%dHz(%d)\n",__FUNCTION__,freq,__LINE__);
 
@@ -1289,8 +1289,8 @@ static int ak4376_set_dai_sysclk(struct snd_soc_dai *dai, int clk_id,
 static int ak4376_set_dai_fmt(struct snd_soc_dai *dai, unsigned int fmt)
 {
 
-    struct snd_soc_codec *codec = dai->codec;
-    struct ak4376_priv *ak4376 = snd_soc_codec_get_drvdata(codec);
+    struct snd_soc_component *codec = dai->component;
+    struct ak4376_priv *ak4376 = snd_soc_component_get_drvdata(codec);
     u8 format;
 
     akdbgprt("\t[AK4376] %s(%d)\n",__FUNCTION__,__LINE__);
@@ -1298,7 +1298,7 @@ static int ak4376_set_dai_fmt(struct snd_soc_dai *dai, unsigned int fmt)
     ak4376_pdn_control(codec, 1);
 
     /* set master/slave audio interface */
-    format = snd_soc_read(codec, AK4376_15_AUDIO_IF_FORMAT);
+    format = snd_soc_component_read32(codec, AK4376_15_AUDIO_IF_FORMAT);
     format &= ~AK4376_DIF;
 
     switch (fmt & SND_SOC_DAIFMT_MASTER_MASK) {
@@ -1331,7 +1331,7 @@ static int ak4376_set_dai_fmt(struct snd_soc_dai *dai, unsigned int fmt)
 
     /* set format */
 	pr_info("format = 0x%x\n",format);
-    snd_soc_write(codec, AK4376_15_AUDIO_IF_FORMAT, format);
+    snd_soc_component_write(codec, AK4376_15_AUDIO_IF_FORMAT, format);
 
     return 0;
 }
@@ -1360,9 +1360,9 @@ static bool ak4376_writeable(struct device *dev, unsigned int reg)
     return ret;
 }
 
-unsigned int ak4376_i2c_read(struct snd_soc_codec *codec, unsigned int reg)
+unsigned int ak4376_i2c_read(struct snd_soc_component *codec, unsigned int reg)
 {
-    struct ak4376_priv *ak4376 = snd_soc_codec_get_drvdata(codec);
+    struct ak4376_priv *ak4376 = snd_soc_component_get_drvdata(codec);
     int ret = -1;
     unsigned char tx[1], rx[1];
 
@@ -1394,13 +1394,13 @@ unsigned int ak4376_i2c_read(struct snd_soc_codec *codec, unsigned int reg)
 
 }
 
-unsigned int ak4376_reg_read(struct snd_soc_codec *codec, unsigned int reg)
+unsigned int ak4376_reg_read(struct snd_soc_component *codec, unsigned int reg)
 {
     unsigned char tx[1];
     int    wlen, rlen;
     int ret = 0;
     unsigned int rdata = 0;
-    struct ak4376_priv *ak4376 = snd_soc_codec_get_drvdata(codec);
+    struct ak4376_priv *ak4376 = snd_soc_component_get_drvdata(codec);
 
     if (ak4376->pdn1 == 0) {
 #ifdef AK4376_CONTIF_DEBUG
@@ -1414,7 +1414,7 @@ unsigned int ak4376_reg_read(struct snd_soc_codec *codec, unsigned int reg)
         }
 
 #else
-        rdata = snd_soc_read(codec, reg);
+        rdata = snd_soc_component_read32(codec, reg);
 #endif
         akdbgprt("\t[AK4376] %s Read cache\n",__FUNCTION__);
     } else if ((ak4376->pdn1 == 1) || (ak4376->pdn1 == 2)) {
@@ -1438,13 +1438,13 @@ unsigned int ak4376_reg_read(struct snd_soc_codec *codec, unsigned int reg)
     return rdata;
 }
 
-static int ak4376_write_register(struct snd_soc_codec *codec, unsigned int reg,
+static int ak4376_write_register(struct snd_soc_component *codec, unsigned int reg,
     unsigned int value)
 {
     size_t    wlen;
     int rc = 0;
     unsigned char tx[2];
-    struct ak4376_priv *ak4376 = snd_soc_codec_get_drvdata(codec);
+    struct ak4376_priv *ak4376 = snd_soc_component_get_drvdata(codec);
 
     akdbgprt("\t[AK4376] %s(%d) (%x,%x)\n",__FUNCTION__,__LINE__,reg,value);
 
@@ -1466,13 +1466,13 @@ static int ak4376_write_register(struct snd_soc_codec *codec, unsigned int reg,
 
 #ifdef CONFIG_DEBUG_FS_CODEC
 static int ak4376_reg_write(
-struct snd_soc_codec *codec,
+struct snd_soc_component *codec,
 u16 reg,
 u16 value)
 {
     akdbgprt("\t[AK4376] %s(%d) (%x,%x)\n",__FUNCTION__,__LINE__,reg,value);
 
-    snd_soc_write(codec, (unsigned int)reg, (unsigned int)value);
+    snd_soc_component_write(codec, (unsigned int)reg, (unsigned int)value);
 
     return 0;
 }
@@ -1489,17 +1489,17 @@ static int ak4376_trigger(struct snd_pcm_substream *substream, int cmd, struct s
 }
 
 
-static int ak4376_set_bias_level(struct snd_soc_codec *codec,
+static int ak4376_set_bias_level(struct snd_soc_component *codec,
 		enum snd_soc_bias_level level)
 {
 	int level1 = level;
-	struct snd_soc_dapm_context *dapm = snd_soc_codec_get_dapm(codec);
+	struct snd_soc_dapm_context *dapm = snd_soc_component_get_dapm(codec);
 
 	akdbgprt("\t[AK4376] %s(%d) level=%d\n",__FUNCTION__,__LINE__,level1);
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4,4,0)
 	akdbgprt("\t[AK4376] %s(%d) codec->dapm.bias_level=%d\n",__FUNCTION__,__LINE__,codec->dapm.bias_level);
 #else
-	akdbgprt("\t[AK4376] %s(%d) snd_soc_codec_get_bias_level=%d\n",__FUNCTION__,__LINE__,snd_soc_codec_get_bias_level(codec));
+	akdbgprt("\t[AK4376] %s(%d) snd_soc_codec_get_bias_level=%d\n",__FUNCTION__,__LINE__,snd_soc_component_get_bias_level(codec));
 #endif
 
 	switch (level1) {
@@ -1509,14 +1509,14 @@ static int ak4376_set_bias_level(struct snd_soc_codec *codec,
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4,4,0)
 		if (codec->dapm.bias_level == SND_SOC_BIAS_STANDBY)
 #else
-		if (snd_soc_codec_get_bias_level(codec) == SND_SOC_BIAS_STANDBY)
+		if (snd_soc_component_get_bias_level(codec) == SND_SOC_BIAS_STANDBY)
 #endif
 			akdbgprt("\t[AK4376] %s(%d) codec->dapm.bias_level == SND_SOC_BIAS_STANDBY\n",__FUNCTION__,__LINE__);
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4,4,0)
 		if (codec->dapm.bias_level == SND_SOC_BIAS_ON)
 #else
-		if (snd_soc_codec_get_bias_level(codec) == SND_SOC_BIAS_ON)
+		if (snd_soc_component_get_bias_level(codec) == SND_SOC_BIAS_ON)
 #endif
 			akdbgprt("\t[AK4376] %s(%d) codec->dapm.bias_level >= SND_SOC_BIAS_ON\n",__FUNCTION__,__LINE__);
 		break;
@@ -1524,7 +1524,7 @@ static int ak4376_set_bias_level(struct snd_soc_codec *codec,
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4,4,0)
 		if (codec->dapm.bias_level == SND_SOC_BIAS_PREPARE) {
 #else
-		if (snd_soc_codec_get_bias_level(codec) == SND_SOC_BIAS_PREPARE) {
+		if (snd_soc_component_get_bias_level(codec) == SND_SOC_BIAS_PREPARE) {
 #endif
 			akdbgprt("\t[AK4376] %s(%d) codec->dapm.bias_level == SND_SOC_BIAS_PREPARE\n",__FUNCTION__,__LINE__);
 			ak4376_pdn_control(codec, 0);
@@ -1533,7 +1533,7 @@ static int ak4376_set_bias_level(struct snd_soc_codec *codec,
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4,4,0)
 		if (codec->dapm.bias_level == SND_SOC_BIAS_OFF)
 #else
-		if (snd_soc_codec_get_bias_level(codec) == SND_SOC_BIAS_OFF)
+		if (snd_soc_component_get_bias_level(codec) == SND_SOC_BIAS_OFF)
 #endif
 			akdbgprt("\t[AK4376] %s(%d) codec->dapm.bias_level == SND_SOC_BIAS_OFF\n",__FUNCTION__,__LINE__);
 		break;
@@ -1554,16 +1554,16 @@ static int ak4376_set_bias_level(struct snd_soc_codec *codec,
 static int ak4376_set_dai_mute(struct snd_soc_dai *dai, int mute)
 {
     u8 MSmode;
-    struct snd_soc_codec *codec = dai->codec;
-    struct ak4376_priv *ak4376 = snd_soc_codec_get_drvdata(codec);
+    struct snd_soc_component *codec = dai->component;
+    struct ak4376_priv *ak4376 = snd_soc_component_get_drvdata(codec);
 
-	akdbgprt("\t[AK4376] %s(%d) snd_soc_codec_get_bias_level(codec)=%d\n",__FUNCTION__,__LINE__,snd_soc_codec_get_bias_level(codec));
+	akdbgprt("\t[AK4376] %s(%d) snd_soc_component_get_bias_level(codec)=%d\n",__FUNCTION__,__LINE__,snd_soc_component_get_bias_level(codec));
 
     if (ak4376->nPllMode == 0) {
         if ( ak4376->nDACOn == 0 ) {
-            MSmode = snd_soc_read(codec, AK4376_15_AUDIO_IF_FORMAT);
+            MSmode = snd_soc_component_read32(codec, AK4376_15_AUDIO_IF_FORMAT);
             if (MSmode & 0x10) {    //Master mode
-                snd_soc_update_bits(codec, AK4376_15_AUDIO_IF_FORMAT, 0x10,0x00);    //MS bit = 0
+                snd_soc_component_update_bits(codec, AK4376_15_AUDIO_IF_FORMAT, 0x10,0x00);    //MS bit = 0
             }
         }
     }
@@ -1571,7 +1571,7 @@ static int ak4376_set_dai_mute(struct snd_soc_dai *dai, int mute)
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4,4,0)
 	if (codec->dapm.bias_level <= SND_SOC_BIAS_STANDBY) {
 #else
-	if (snd_soc_codec_get_bias_level(codec) <= SND_SOC_BIAS_STANDBY) {
+	if (snd_soc_component_get_bias_level(codec) <= SND_SOC_BIAS_STANDBY) {
 #endif
 		akdbgprt("\t[AK4376] %s(%d) codec->dapm.bias_level <= SND_SOC_BIAS_STANDBY\n",__FUNCTION__,__LINE__);
 
@@ -1613,10 +1613,10 @@ struct snd_soc_dai_driver ak4376_dai[] = {
     },
 };
 
-static int ak4376_init_reg(struct snd_soc_codec *codec)
+static int ak4376_init_reg(struct snd_soc_component *codec)
 {
     u8 DeviceID;
-    struct ak4376_priv *ak4376 = snd_soc_codec_get_drvdata(codec);
+    struct ak4376_priv *ak4376 = snd_soc_component_get_drvdata(codec);
 
     akdbgprt("\t[AK4376] %s(%d)\n",__FUNCTION__,__LINE__);
 
@@ -1680,9 +1680,9 @@ static int ak4376_parse_dt(struct ak4376_priv *ak4376)
 }
 #endif /* VENDOR_EDIT */
 
-static int ak4376_probe(struct snd_soc_codec *codec)
+static int ak4376_probe(struct snd_soc_component *codec)
 {
-    struct ak4376_priv *ak4376 = snd_soc_codec_get_drvdata(codec);
+    struct ak4376_priv *ak4376 = snd_soc_component_get_drvdata(codec);
     int ret = 0;
 
     akdbgprt("\t[AK4376] %s(%d)\n",__FUNCTION__,__LINE__);
@@ -1743,7 +1743,15 @@ static int ak4376_probe(struct snd_soc_codec *codec)
     return ret;
 }
 
-static int ak4376_remove(struct snd_soc_codec *codec)
+static void ak4376_remove(struct snd_soc_component *codec)
+{
+
+    akdbgprt("\t[AK4376] %s(%d)\n",__FUNCTION__,__LINE__);
+
+    ak4376_set_bias_level(codec, SND_SOC_BIAS_OFF);
+}
+
+static int ak4376_suspend(struct snd_soc_component *codec)
 {
 
     akdbgprt("\t[AK4376] %s(%d)\n",__FUNCTION__,__LINE__);
@@ -1753,17 +1761,7 @@ static int ak4376_remove(struct snd_soc_codec *codec)
     return 0;
 }
 
-static int ak4376_suspend(struct snd_soc_codec *codec)
-{
-
-    akdbgprt("\t[AK4376] %s(%d)\n",__FUNCTION__,__LINE__);
-
-    ak4376_set_bias_level(codec, SND_SOC_BIAS_OFF);
-
-    return 0;
-}
-
-static int ak4376_resume(struct snd_soc_codec *codec)
+static int ak4376_resume(struct snd_soc_component *codec)
 {
 
     akdbgprt("\t[AK4376] %s(%d)\n",__FUNCTION__,__LINE__);
@@ -1773,7 +1771,7 @@ static int ak4376_resume(struct snd_soc_codec *codec)
     return 0;
 }
 
-struct snd_soc_codec_driver soc_codec_dev_ak4376 = {
+struct snd_soc_component_driver soc_codec_dev_ak4376 = {
     .probe = ak4376_probe,
     .remove = ak4376_remove,
     .suspend = ak4376_suspend,
@@ -1790,7 +1788,6 @@ struct snd_soc_codec_driver soc_codec_dev_ak4376 = {
     .controls = ak4376_snd_controls,
     .num_controls = ARRAY_SIZE(ak4376_snd_controls),
 
-    .idle_bias_off = true,
     .set_bias_level = ak4376_set_bias_level,
 
     .dapm_widgets = ak4376_dapm_widgets,
@@ -2020,7 +2017,7 @@ static int ak4376_i2c_probe(struct i2c_client *i2c,
 	printk("ak4376_i2c_probe ak4376->pdn1 = %d\n",ak4376->pdn1);
 	#endif /* VENDOR_EDIT */
 
-    ret = snd_soc_register_codec(&i2c->dev,
+    ret = snd_soc_register_component(&i2c->dev,
             &soc_codec_dev_ak4376, &ak4376_dai[0], ARRAY_SIZE(ak4376_dai));
     if (ret < 0){
         kfree(ak4376);
@@ -2041,7 +2038,7 @@ static int ak4376_i2c_remove(struct i2c_client *client)
     device_remove_file(&client->dev, &dev_attr_reg_data);
 #endif
 
-    snd_soc_unregister_codec(&client->dev);
+    snd_soc_unregister_component(&client->dev);
     kfree(i2c_get_clientdata(client));
 
     return 0;

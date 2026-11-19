@@ -49,7 +49,7 @@ struct tfa98xx_firmware {
 struct tfa98xx {
     struct regmap *regmap;
     struct i2c_client *i2c;
-    struct snd_soc_codec *codec;
+    struct snd_soc_component *component;
     struct workqueue_struct *tfa98xx_wq;
     struct work_struct init_work;
     #ifndef VENDOR_EDIT
