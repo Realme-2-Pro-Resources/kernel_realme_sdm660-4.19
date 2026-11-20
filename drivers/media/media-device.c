@@ -85,6 +85,12 @@ static long media_device_get_info(struct media_device *dev, void *arg)
 	return 0;
 }
 
+static bool is_msm_camera_mdev(struct media_device *mdev)
+{
+	return !strcmp(mdev->model, "msm_config") ||
+	       !strcmp(mdev->model, "msm_camera");
+}
+
 static struct media_entity *find_entity(struct media_device *mdev, u32 id)
 {
 	struct media_entity *entity;
@@ -612,8 +618,10 @@ int __must_check media_device_register_entity(struct media_device *mdev,
 	unsigned int i;
 	int ret;
 
-	if (entity->function == MEDIA_ENT_F_V4L2_SUBDEV_UNKNOWN ||
-	    entity->function == MEDIA_ENT_F_UNKNOWN)
+	/* msm camera entities are typed through group_id instead */
+	if ((entity->function == MEDIA_ENT_F_V4L2_SUBDEV_UNKNOWN ||
+	     entity->function == MEDIA_ENT_F_UNKNOWN) &&
+	    !is_msm_camera_mdev(mdev))
 		dev_warn(mdev->dev,
 			 "Entity type for entity %s was not initialized!\n",
 			 entity->name);
