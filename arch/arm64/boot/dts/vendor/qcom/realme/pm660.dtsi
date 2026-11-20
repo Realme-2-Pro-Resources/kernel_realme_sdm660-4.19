@@ -208,8 +208,8 @@
 	};
 };
 
-&pm660l_wled{
-    qcom,fs-curr-ua = <20000>;
+&pm660l_wled {
+    qcom,fs-current-limit = <20000>;
     qcom,en-cabc;
 };
 
