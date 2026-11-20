@@ -168,9 +168,60 @@
 };
 
 &pm660_haptics {
-    /delete-property/ qcom,en-brake;
-    /* qti-haptics takes the actuator type as a string; this is an ERM motor */
+    /delete-property/ qcom,lra-resonance-sig-shape;
+    /delete-property/ qcom,lra-auto-resonance-mode;
+    /delete-property/ qcom,lra-allow-variable-play-rate;
+
+    /* RMX1801 uses an ERM motor without active reverse braking */
     qcom,actuator-type = "erm";
+    qcom,vmax-mv = <3200>;
+    qcom,play-rate-us = <5000>;
+
+    wf_0 {
+        /* CLICK: 35ms */
+        /delete-property/ qcom,wf-brake-pattern;
+        qcom,wf-vmax-mv = <3200>;
+        qcom,wf-pattern = [36 36 36 36 36 36 36];
+        qcom,wf-play-rate-us = <5000>;
+    };
+
+    wf_1 {
+        /* DOUBLE CLICK: 2 x (30ms on + 50ms pause) */
+        qcom,wf-vmax-mv = <3200>;
+        qcom,wf-pattern = [36 36 36 02 02 02 02 02];
+        qcom,wf-play-rate-us = <10000>;
+        qcom,wf-repeat-count = <2>;
+        qcom,wf-s-repeat-count = <1>;
+    };
+
+    wf_2 {
+        /* TICK: 25ms */
+        qcom,wf-vmax-mv = <3200>;
+        qcom,wf-pattern = [36 36 36 36 36];
+        qcom,wf-play-rate-us = <5000>;
+    };
+
+    wf_3 {
+        /* THUD: 40ms */
+        qcom,wf-vmax-mv = <3200>;
+        qcom,wf-pattern = [36 36 36 36 36 36 36 36];
+        qcom,wf-play-rate-us = <5000>;
+    };
+
+    wf_4 {
+        /* POP: 30ms */
+        qcom,wf-vmax-mv = <3200>;
+        qcom,wf-pattern = [36 36 36 36 36 36];
+        qcom,wf-play-rate-us = <5000>;
+    };
+
+    wf_5 {
+        /* HEAVY CLICK: 50ms */
+        /delete-property/ qcom,wf-brake-pattern;
+        qcom,wf-vmax-mv = <3200>;
+        qcom,wf-pattern = [36 36 36 36 36];
+        qcom,wf-play-rate-us = <10000>;
+    };
 };
 
 &spmi_bus {
