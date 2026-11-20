@@ -80,6 +80,13 @@
     /delete-node/ qcom,qbt1000;
     /delete-node/ qcom,bcl;
 
+    qcom,oembackup_sharedmem@0 {
+        compatible = "qcom,sharedmem-uio";
+        reg = <0x0 0x00100000>;
+        reg-names = "oembackup";
+        qcom,client-id = <0x00000004>;
+    };
+
     gpio_keys {
         pinctrl-names = "default";
         pinctrl-0 = <&key_vol_up_default &key_vol_down_default>;
