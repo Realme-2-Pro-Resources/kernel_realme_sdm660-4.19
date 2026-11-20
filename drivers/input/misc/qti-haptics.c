@@ -128,6 +128,7 @@ enum haptics_custom_effect_param {
 #define HAP_VMAX_MV_LSB			116
 
 #define REG_HAP_ILIM_CFG		0x52
+#define HAP_ILIM_SEL_800MA		BIT(0)
 #define HAP_ILIM_SEL_1000MA		BIT(1)
 #define HAP_ILIM_DEFAULT_SEL		HAP_ILIM_SEL_1000MA
 #define REG_HAP_SC_DEB_CFG		0x53
@@ -595,6 +596,10 @@ static int qti_haptics_clear_settings(struct qti_hap_chip *chip)
 	if (rc < 0)
 		return rc;
 
+	rc = qti_haptics_config_wf_src(chip, INT_WF_BUFFER);
+	if (rc < 0)
+		return rc;
+
 	rc = qti_haptics_write(chip, REG_HAP_WF_S1, pattern,
 			HAP_WAVEFORM_BUFFER_MAX);
 	if (rc < 0)
@@ -638,6 +643,11 @@ static int qti_haptics_load_constant_waveform(struct qti_hap_chip *chip)
 				return rc;
 		}
 
+		/* Disable braking when playing constant VMAX waveform */
+		rc = qti_haptics_brake_enable(chip, false);
+		if (rc < 0)
+			return rc;
+
 		/* Set WF_SOURCE to VMAX */
 		rc = qti_haptics_config_wf_src(chip, INT_WF_VMAX);
 		if (rc < 0)
@@ -654,6 +664,12 @@ static int qti_haptics_load_constant_waveform(struct qti_hap_chip *chip)
 		play->playing_pos = 0;
 		/* Format and config waveform in patterns */
 		construct_constant_waveform_in_pattern(play);
+
+		/* Configure zero brake pattern so playback stops after valid samples */
+		rc = qti_haptics_config_brake(chip, play->effect->brake);
+		if (rc < 0)
+			return rc;
+
 		rc = qti_haptics_config_wf_buffer(chip);
 		if (rc < 0)
 			return rc;
@@ -849,12 +865,17 @@ static int qti_haptics_upload_effect(struct input_dev *dev,
 	ktime_t rem;
 	s64 time_us;
 
+	hrtimer_cancel(&chip->stop_timer);
+
 	if (hrtimer_active(&chip->hap_disable_timer)) {
 		rem = hrtimer_get_remaining(&chip->hap_disable_timer);
 		time_us = ktime_to_us(rem);
-		dev_dbg(chip->dev, "waiting for playing clear sequence: %lld us\n",
-				time_us);
-		usleep_range(time_us, time_us + 100);
+		if (time_us > 0) {
+			dev_dbg(chip->dev, "waiting for playing clear sequence: %lld us\n",
+					time_us);
+			usleep_range(time_us, time_us + 100);
+		}
+		hrtimer_cancel(&chip->hap_disable_timer);
 	}
 
 	switch (effect->type) {
@@ -958,6 +979,8 @@ static int qti_haptics_playback(struct input_dev *dev, int effect_id, int val)
 	if (!!val) {
 		pr_debug("Vibration - on at %lu us\n",
 				(unsigned long)ktime_to_us(ktime_get()));
+		hrtimer_try_to_cancel(&chip->hap_disable_timer);
+		hrtimer_try_to_cancel(&chip->stop_timer);
 		rc = qti_haptics_module_en(chip, true);
 		if (rc < 0)
 			return rc;
@@ -989,6 +1012,7 @@ static int qti_haptics_playback(struct input_dev *dev, int effect_id, int val)
 	} else {
 		pr_debug("Vibration - off at %lu us\n",
 				(unsigned long)ktime_to_us(ktime_get()));
+		hrtimer_try_to_cancel(&chip->stop_timer);
 		play->length_us = 0;
 		rc = qti_haptics_play(chip, false);
 		if (rc < 0)
@@ -1007,6 +1031,8 @@ static int qti_haptics_erase(struct input_dev *dev, int effect_id)
 {
 	struct qti_hap_chip *chip = input_get_drvdata(dev);
 	int delay_us, rc = 0;
+
+	hrtimer_cancel(&chip->stop_timer);
 
 	if (chip->vdd_supply && chip->vdd_enabled) {
 		rc = regulator_disable(chip->vdd_supply);
@@ -1070,7 +1096,10 @@ static int qti_haptics_hw_init(struct qti_hap_chip *chip)
 
 	/* Config ilim_ma */
 	addr = REG_HAP_ILIM_CFG;
-	val = HAP_ILIM_DEFAULT_SEL;
+	if (of_device_is_compatible(chip->dev->of_node, "qcom,pm660-haptics"))
+		val = HAP_ILIM_SEL_800MA;
+	else
+		val = HAP_ILIM_DEFAULT_SEL;
 	rc = qti_haptics_write(chip, addr, &val, 1);
 	if (rc < 0) {
 		dev_err(chip->dev, "write ilim_ma failed, rc=%d\n", rc);
@@ -1112,6 +1141,11 @@ static int qti_haptics_hw_init(struct qti_hap_chip *chip)
 	 */
 	if (config->act_type == ACT_ERM) {
 		/* Disable AUTO_RES for ERM */
+		val = 0x00;
+		rc = qti_haptics_write(chip, REG_HAP_AUTO_RES_CFG, &val, 1);
+		if (rc < 0)
+			return rc;
+
 		rc = qti_haptics_lra_auto_res_enable(chip, false);
 		return rc;
 	}
@@ -2034,6 +2068,8 @@ static int qti_haptics_remove(struct platform_device *pdev)
 {
 	struct qti_hap_chip *chip = dev_get_drvdata(&pdev->dev);
 
+	hrtimer_cancel(&chip->stop_timer);
+	hrtimer_cancel(&chip->hap_disable_timer);
 #ifdef CONFIG_DEBUG_FS
 	debugfs_remove_recursive(chip->hap_debugfs);
 #endif
@@ -2050,6 +2086,8 @@ static void qti_haptics_shutdown(struct platform_device *pdev)
 
 	dev_dbg(chip->dev, "Shutdown!\n");
 
+	hrtimer_cancel(&chip->stop_timer);
+	hrtimer_cancel(&chip->hap_disable_timer);
 	qti_haptics_module_en(chip, false);
 
 	if (chip->vdd_supply && chip->vdd_enabled) {
