@@ -6907,7 +6907,11 @@ static int smb2_batt_get_prop(struct power_supply *psy,
 	/*wenbin.liu add for cts test*/	
 	case POWER_SUPPLY_PROP_CURRENT_MAX:
 		rc = smblib_get_prop_input_current_settled(chg, val);
-		break;		
+		break;
+	case POWER_SUPPLY_PROP_FCC_STEPPER_ENABLE:
+		/* Queried by msm-4.19 battery.c; FCC stepping is not used here */
+		val->intval = 0;
+		break;
 	default:
 		pr_err("batt power supply prop %d not supported\n", psp);
 		return -EINVAL;
