@@ -42,14 +42,28 @@
 #define WLED_CTRL_INT_RT_STS		0x10
 #define  WLED_CTRL_OVP_FLT_RT_STS_BIT	BIT(1)
 
+#define WLED_CTRL_DISP_SEL		0x44
+#define  WLED_CTRL_DISP_SEL_MASK	BIT(7)
+#define  WLED_CTRL_DISP_SEL_SHIFT	7
+
 #define WLED_CTRL_MOD_ENABLE		0x46
 #define  WLED_CTRL_MOD_EN_MASK		BIT(7)
 #define  WLED_CTRL_MODULE_EN_SHIFT	7
 
 #define WLED_CTRL_FDBK_OP		0x48
+#define  WLED_CTRL_FDBK_OP_MASK		GENMASK(2, 0)
+#define  WLED_CTRL_FDBK_AUTO		0x00
+
+#define WLED_CTRL_VREF			0x49
+#define  WLED_CTRL_VREF_MASK		GENMASK(3, 0)
+#define  WLED4_VREF_DFLT		0x03
+
+#define WLED_CTRL_BOOST_DUTY		0x4b
+#define  WLED_CTRL_BOOST_DUTY_MASK	GENMASK(1, 0)
 
 #define WLED_CTRL_SWITCH_FREQ		0x4c
 #define  WLED_CTRL_SWITCH_FREQ_MASK	GENMASK(3, 0)
+#define  WLED_CTRL_SWITCH_FREQ_OVERWRITE BIT(7)
 
 #define WLED_CTRL_OVP			0x4d
 #define  WLED_CTRL_OVP_MASK		GENMASK(1, 0)
@@ -57,6 +71,20 @@
 
 #define WLED_CTRL_ILIM			0x4e
 #define  WLED_CTRL_ILIM_MASK		GENMASK(2, 0)
+#define  WLED_CTRL_ILIM_OVERWRITE	BIT(7)
+
+#define WLED_CTRL_SOFTSTART_RAMP_DLY	0x53
+#define  WLED_CTRL_SOFTSTART_RAMP_DLY_MASK GENMASK(2, 0)
+#define  WLED_CTRL_SOFTSTART_OVERWRITE	BIT(7)
+#define  WLED4_LCD_SOFTSTART_RAMP_DLY	2
+
+#define WLED_CTRL_VLOOP_COMP_GM		0x56
+#define  WLED_CTRL_VLOOP_COMP_GM_OVERWRITE	BIT(7)
+#define  WLED_CTRL_VLOOP_COMP_AUTO_GM_EN	BIT(6)
+#define  WLED_CTRL_VLOOP_COMP_AUTO_GM_THRESH_MASK GENMASK(5, 4)
+#define  WLED_CTRL_VLOOP_COMP_AUTO_GM_DFLT_THRESH BIT(4)
+#define  WLED_CTRL_VLOOP_COMP_GM_MASK		GENMASK(3, 0)
+#define  WLED4_LOOP_GM_DFLT			0x09
 
 #define WLED_CTRL_LCD_AUTO_PFM				0x5c
 #define  WLED_CTRL_LCD_AUTO_PFM_DFLT_THRESH		1
@@ -87,9 +115,30 @@
 #define  WLED_SINK_SYNC_LED4		BIT(3)
 #define  WLED_SINK_SYNC_CLEAR		0x00
 
+#define WLED_SINK_MOD			0x4a
+#define  WLED_SINK_MOD_FREQ_MASK	GENMASK(7, 6)
+#define  WLED_SINK_MOD_FREQ_9600_KHZ	BIT(6)
+#define  WLED_SINK_PHASE_STAG_MASK	BIT(5)
+#define  WLED_SINK_ACC_CLK_FREQ_MASK	GENMASK(4, 3)
+#define  WLED_SINK_ACC_CLK_9600_KHZ	BIT(3)
+#define  WLED_SINK_DIM_HYB_MASK		BIT(2)
+#define  WLED_SINK_DIM_RES_MASK		BIT(1)
+
+#define WLED_SINK_HYB_THRES		0x4b
+#define  WLED_SINK_HYB_THRES_MASK	GENMASK(2, 0)
+#define  WLED4_HYB_THRES_DFLT		0x02
+
 #define WLED_SINK_MOD_EN_REG(n)		(0x50 + (n * 0x10))
 #define  WLED_SINK_REG_STR_MOD_MASK	BIT(7)
 #define  WLED_SINK_REG_STR_MOD_EN	BIT(7)
+#define  WLED_SINK_GATE_DRV_MASK	BIT(0)
+
+#define WLED_SINK_SEC_ACCESS		0xd0
+#define  WLED_SINK_SEC_UNLOCK		0xa5
+
+#define WLED_SINK_TEST5			0xe6
+#define  WLED_SINK_TEST5_HYB		0x14
+#define  WLED_SINK_TEST5_HVG_PULL_STR_BIT BIT(3)
 
 #define WLED_SINK_SYNC_DLY_REG(n)	(0x51 + (n * 0x10))
 #define  WLED_SINK_SYNC_DLY_MASK	GENMASK(2, 0)
@@ -125,7 +174,14 @@
 #define WLED5_CTRL_FLASH_HDRM_REG	0x69
 
 #define WLED5_CTRL_TEST4_REG		0xe5
+#define  WLED4_TEST4_EN_DEB_BYPASS_ILIM	BIT(6)
 #define  WLED5_TEST4_EN_SH_SS		BIT(5)
+#define  WLED4_TEST4_EN_CLAMP		BIT(4)
+#define  WLED4_TEST4_EN_SOFT_START	BIT(1)
+#define  WLED4_TEST4_EN_IIND_UP		BIT(0)
+#define  WLED4_TEST4_EN_VREF_UP		(WLED5_TEST4_EN_SH_SS | \
+					 WLED4_TEST4_EN_CLAMP | \
+					 WLED4_TEST4_EN_SOFT_START)
 
 #define WLED5_CTRL_PBUS_WRITE_SYNC_CTL	0xef
 
@@ -479,13 +535,15 @@ static int wled4_set_brightness(struct wled *wled, u16 brightness)
 	v[1] = (brightness >> 8) & 0xf;
 
 	for (i = 0; (string_cfg >> i) != 0; i++) {
+		if (!(string_cfg & BIT(i)))
+			continue;
 		rc = regmap_bulk_write(wled->regmap, wled->sink_addr +
 				WLED_SINK_BRIGHT_LSB_REG(i), v, 2);
 		if (rc < 0)
 			return rc;
 	}
 
-	return 0;
+	return wled_sync_toggle(wled);
 }
 
 static int wled_set_brightness(struct wled *wled, u16 brightness)
@@ -551,15 +609,6 @@ static int wled_update_status(struct backlight_device *bl)
 	}
 
 	wled->prev_state = !!brightness;
-
-	if (is_wled4(wled)) {
-		rc = wled_sync_toggle(wled);
-		if (rc < 0) {
-			pr_err("wled sync failed rc:%d\n", rc);
-			goto unlock_mutex;
-		}
-	}
-
 	wled->brightness = brightness;
 
 unlock_mutex:
@@ -875,8 +924,10 @@ static int wled_auto_calibrate(struct wled *wled)
 			else
 				reg = 0x0;
 
-			rc = regmap_write(wled->regmap, wled->sink_addr +
-					WLED_SINK_MOD_EN_REG(i), reg);
+			rc = regmap_update_bits(wled->regmap, wled->sink_addr +
+					WLED_SINK_MOD_EN_REG(i),
+					WLED_SINK_REG_STR_MOD_MASK |
+					WLED_SINK_GATE_DRV_MASK, reg);
 			if (rc < 0) {
 				pr_err("Failed to configure MODULATOR_EN rc=%d\n",
 					rc);
@@ -899,7 +950,8 @@ static int wled_auto_calibrate(struct wled *wled)
 	}
 
 	/* restore  brightness */
-	rc = wled_set_brightness(wled, wled->brightness);
+	rc = wled_set_brightness(wled, !wled->brightness ?
+			AUTO_CALIB_BRIGHTNESS : wled->brightness);
 	if (rc < 0) {
 		pr_err("Failed to set brightness after calibration rc=%d\n",
 			rc);
@@ -1011,12 +1063,14 @@ static void handle_ovp_fault(struct wled *wled)
 
 	mutex_lock(&wled->lock);
 	if (wled->auto_calib_done) {
-		pr_warn("Disabling module since OVP persists\n");
-		rc = regmap_update_bits(wled->regmap,
-				wled->ctrl_addr + WLED_CTRL_MOD_ENABLE,
-				WLED_CTRL_MOD_EN_MASK, 0);
-		if (!rc)
-			wled->force_mod_disable = true;
+		if (is_wled5(wled)) {
+			pr_warn("Disabling module since OVP persists\n");
+			rc = regmap_update_bits(wled->regmap,
+					wled->ctrl_addr + WLED_CTRL_MOD_ENABLE,
+					WLED_CTRL_MOD_EN_MASK, 0);
+			if (!rc)
+				wled->force_mod_disable = true;
+		}
 		mutex_unlock(&wled->lock);
 		return;
 	}
@@ -1233,9 +1287,77 @@ static int wled5_setup(struct wled *wled)
 static int wled4_setup(struct wled *wled)
 {
 	int rc, temp, i;
-	u8 sink_en = 0;
+	u8 sink_en = 0, reg;
 	u32 val;
 	u8 string_cfg = wled->cfg.string_cfg;
+
+	/* Configure display type */
+	rc = regmap_read(wled->regmap,
+			wled->ctrl_addr + WLED_CTRL_DISP_SEL, &val);
+	if (rc < 0)
+		return rc;
+
+	reg = (val & ~WLED_CTRL_DISP_SEL_MASK) |
+	      (wled->cfg.disp_type_amoled << WLED_CTRL_DISP_SEL_SHIFT);
+	rc = regmap_write(wled->regmap,
+			wled->ctrl_addr + WLED_CTRL_SEC_ACCESS,
+			WLED_CTRL_SEC_UNLOCK);
+	if (rc < 0)
+		return rc;
+
+	rc = regmap_write(wled->regmap,
+			wled->ctrl_addr + WLED_CTRL_DISP_SEL, reg);
+	if (rc < 0)
+		return rc;
+
+	if (!wled->cfg.disp_type_amoled) {
+		/*
+		 * Enable VREF_UP to avoid false OVP on low brightness for LCD
+		 */
+		reg = WLED4_TEST4_EN_VREF_UP | WLED4_TEST4_EN_DEB_BYPASS_ILIM;
+		rc = regmap_write(wled->regmap,
+				wled->ctrl_addr + WLED_CTRL_SEC_ACCESS,
+				WLED_CTRL_SEC_UNLOCK);
+		if (rc < 0)
+			return rc;
+
+		rc = regmap_write(wled->regmap,
+				wled->ctrl_addr + WLED5_CTRL_TEST4_REG, reg);
+		if (rc < 0)
+			return rc;
+	}
+
+	/* Configure FEEDBACK OUTPUT register */
+	rc = regmap_update_bits(wled->regmap,
+			wled->ctrl_addr + WLED_CTRL_FDBK_OP,
+			WLED_CTRL_FDBK_OP_MASK, WLED_CTRL_FDBK_AUTO);
+	if (rc < 0)
+		return rc;
+
+	/* Configure VREF register */
+	rc = regmap_update_bits(wled->regmap,
+			wled->ctrl_addr + WLED_CTRL_VREF,
+			WLED_CTRL_VREF_MASK, WLED4_VREF_DFLT);
+	if (rc < 0)
+		return rc;
+
+	/* Configure VLOOP_COMP_GM register */
+	if (wled->cfg.disp_type_amoled) {
+		reg = WLED4_LOOP_GM_DFLT | WLED_CTRL_VLOOP_COMP_GM_OVERWRITE;
+	} else {
+		reg = WLED_CTRL_VLOOP_COMP_AUTO_GM_EN |
+		      WLED_CTRL_VLOOP_COMP_AUTO_GM_DFLT_THRESH |
+		      WLED4_LOOP_GM_DFLT |
+		      WLED_CTRL_VLOOP_COMP_GM_OVERWRITE;
+	}
+	rc = regmap_update_bits(wled->regmap,
+			wled->ctrl_addr + WLED_CTRL_VLOOP_COMP_GM,
+			WLED_CTRL_VLOOP_COMP_AUTO_GM_EN |
+			WLED_CTRL_VLOOP_COMP_AUTO_GM_THRESH_MASK |
+			WLED_CTRL_VLOOP_COMP_GM_MASK |
+			WLED_CTRL_VLOOP_COMP_GM_OVERWRITE, reg);
+	if (rc < 0)
+		return rc;
 
 	rc = regmap_update_bits(wled->regmap,
 			wled->ctrl_addr + WLED_CTRL_OVP,
@@ -1245,13 +1367,34 @@ static int wled4_setup(struct wled *wled)
 
 	rc = regmap_update_bits(wled->regmap,
 			wled->ctrl_addr + WLED_CTRL_ILIM,
-			WLED_CTRL_ILIM_MASK, wled->cfg.boost_i_limit);
+			WLED_CTRL_ILIM_MASK | WLED_CTRL_ILIM_OVERWRITE,
+			wled->cfg.boost_i_limit | WLED_CTRL_ILIM_OVERWRITE);
 	if (rc < 0)
 		return rc;
 
+	/* Configure soft-start ramp delay and max boost duty */
+	if (!wled->cfg.disp_type_amoled) {
+		rc = regmap_update_bits(wled->regmap,
+				wled->ctrl_addr + WLED_CTRL_SOFTSTART_RAMP_DLY,
+				WLED_CTRL_SOFTSTART_RAMP_DLY_MASK,
+				WLED4_LCD_SOFTSTART_RAMP_DLY);
+		if (rc < 0)
+			return rc;
+
+		rc = regmap_update_bits(wled->regmap,
+				wled->ctrl_addr + WLED_CTRL_BOOST_DUTY,
+				WLED_CTRL_BOOST_DUTY_MASK, 0);
+		if (rc < 0)
+			return rc;
+	}
+
+	reg = wled->cfg.switch_freq;
+	if (!wled->cfg.disp_type_amoled)
+		reg |= WLED_CTRL_SWITCH_FREQ_OVERWRITE;
 	rc = regmap_update_bits(wled->regmap,
 			wled->ctrl_addr + WLED_CTRL_SWITCH_FREQ,
-			WLED_CTRL_SWITCH_FREQ_MASK, wled->cfg.switch_freq);
+			WLED_CTRL_SWITCH_FREQ_MASK |
+			WLED_CTRL_SWITCH_FREQ_OVERWRITE, reg);
 	if (rc < 0)
 		return rc;
 
@@ -1271,6 +1414,39 @@ static int wled4_setup(struct wled *wled)
 			return rc;
 	}
 
+	/* Configure sink modulation (9600 kHz, hybrid dimming) & threshold */
+	rc = regmap_update_bits(wled->regmap,
+			wled->sink_addr + WLED_SINK_MOD,
+			WLED_SINK_MOD_FREQ_MASK | WLED_SINK_PHASE_STAG_MASK |
+			WLED_SINK_ACC_CLK_FREQ_MASK | WLED_SINK_DIM_HYB_MASK |
+			WLED_SINK_DIM_RES_MASK,
+			WLED_SINK_MOD_FREQ_9600_KHZ |
+			WLED_SINK_ACC_CLK_9600_KHZ |
+			WLED_SINK_DIM_HYB_MASK);
+	if (rc < 0)
+		return rc;
+
+	rc = regmap_update_bits(wled->regmap,
+			wled->sink_addr + WLED_SINK_HYB_THRES,
+			WLED_SINK_HYB_THRES_MASK, WLED4_HYB_THRES_DFLT);
+	if (rc < 0)
+		return rc;
+
+	/* Configure SINK_TEST5 register */
+	reg = WLED_SINK_TEST5_HYB;
+	if (*wled->version == WLED_PM660L)
+		reg |= WLED_SINK_TEST5_HVG_PULL_STR_BIT;
+	rc = regmap_write(wled->regmap,
+			wled->sink_addr + WLED_SINK_SEC_ACCESS,
+			WLED_SINK_SEC_UNLOCK);
+	if (rc < 0)
+		return rc;
+
+	rc = regmap_write(wled->regmap,
+			wled->sink_addr + WLED_SINK_TEST5, reg);
+	if (rc < 0)
+		return rc;
+
 	/* Per sink/string configuration */
 	for (i = 0; (string_cfg >> i) != 0; i++) {
 		if (string_cfg & BIT(i)) {
@@ -1278,7 +1454,8 @@ static int wled4_setup(struct wled *wled)
 					WLED_SINK_MOD_EN_REG(i);
 
 			rc = regmap_update_bits(wled->regmap, addr,
-					WLED_SINK_REG_STR_MOD_MASK,
+					WLED_SINK_REG_STR_MOD_MASK |
+					WLED_SINK_GATE_DRV_MASK,
 					WLED_SINK_REG_STR_MOD_EN);
 			if (rc < 0)
 				return rc;
