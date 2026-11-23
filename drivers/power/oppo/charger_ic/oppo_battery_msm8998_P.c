@@ -57,6 +57,8 @@ static int oppo_usbid_gpio_init(struct oppo_chg_chip *chip);
 static void oppo_usbid_irq_init(struct oppo_chg_chip *chip);
 static void oppo_set_usbid_active(struct oppo_chg_chip *chip);
 static void oppo_set_usbid_sleep(struct oppo_chg_chip *chip);
+void otg_enable_id_value(void);
+void otg_disable_id_value(void);
 static bool oppo_ship_check_is_gpio(struct oppo_chg_chip *chip);
 static int oppo_ship_gpio_init(struct oppo_chg_chip *chip);
 static void smbchg_enter_shipmode(struct oppo_chg_chip *chip);
@@ -9151,6 +9153,8 @@ static void oppo_usbid_irq_register(struct oppo_chg_chip *chip)
 	power_supply_get_property(chip->usb_psy, POWER_SUPPLY_PROP_OTG_SWITCH, &ret);
 	if (ret.intval == false) {
 		oppo_set_usbid_sleep(chip);
+	} else {
+		usbid_change_handler(0, chip);
 	}
 }
 
@@ -9159,7 +9163,7 @@ bool oppo_usbid_check_is_gpio(struct oppo_chg_chip *chip)
 	unsigned int project = get_project();
 	unsigned char pcb_version = get_PCB_Version();
 
-	if (gpio_is_valid(chip->normalchg_gpio.usbid_gpio)) {
+	if (chip && gpio_is_valid(chip->normalchg_gpio.usbid_gpio)) {
 		if (project != OPPO_17011 && project != OPPO_17021) {
 			/* only for 17011, dts include usbid_gpio, but after DVT phone support.
 			    for 16051, dts not include usbid_gpio,
